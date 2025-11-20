@@ -21,6 +21,14 @@
 ## fix: op_in_r is an operation, not bit?
         op_in_r <= '0 -> op_in_r <= nop
 ## vim commands
+    insert mode 
+        `i` `o`
+    visual mode -> select back forward
+        `v` `b` `w`
+    eol bol char
+        `$` `^` `0`
+    scroll down page -> bof, eof
+        `gg` `G`
     one more after end of the line:
         `:set ve+=onemore`
     move:
@@ -32,8 +40,7 @@
         `d dd 3dd d$`
         `P p`
 
-![rst](https://github.com/NexOps-7/academy/tree/main/verilog/pics/rand_expected_dut.png)
-![rst](https://github.com/NexOps-7/academy/tree/main/verilog/pics/rand_rst.png)
-![alu](https://github.com/NexOps-7/academy/tree/main/verilog/pics/alu_2_states.png)
+![rst](https://github.com/halcyon-09/academy/tree/main/verilog_fpga/pics/rand_expected_dut.png)
+![rst](https://github.com/halcyon-09/academy/tree/main/verilog_fpga/pics/rand_rst.png)
+![alu](https://github.com/halcyon-09/academy/tree/main/verilog_fpga/pics/alu_2_states.png)
 
-[Ref](https://itsembedded.com/dhd/verilator_1/)

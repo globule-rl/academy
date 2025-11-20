@@ -1,12 +1,14 @@
 
+less confidence -> more cautious
+
 its a long road to redemption, and a shorter one to damnation
 
-fly flys
+flys/bacteria
+
+panic denial regret analysis acceptance trajectory
 
 
-invisible hand
-
-profit = revenue - labor - capital interest - land - cost of material
+----------------------------------------------------------------
 
 first principle -> simplicity
 
@@ -24,7 +26,7 @@ if sth is worth doing, its worth doing it well
 
 in a sense, i'm glad you're not suffering anymore
 
-common interest, not best friend of the year/its ok to be a people pleaser
+common interest, not best friend of the year
 
 work hard
 
@@ -33,3 +35,10 @@ dont let opportunity be a disadvantage
 grow the overall pie, not to change the db distribution of wealth
 
 build the future, truth, win over nature
+
+
+----------------------------------------------------------------
+
+invisible hand
+
+profit = revenue - labor - capital interest - land - cost of material
