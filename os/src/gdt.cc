@@ -39,21 +39,18 @@ using namespace os::common;
         asm volatile: as-is, prevent reordering/optimizing remove/move this instruction
 */
 Gdt::Gdt() 
-    : nullSegSelector(0,0,0),
-        unusedSegSelector(0,0,0),
-        codeSegSelector(0, 64*1024*1024, 0x9A),
-        dataSegSelector(0, 64*1024*1024, 0x92) {
-            /* uint32_t i[2];
-            i[0] = sizeof(Gdt) << 16;
-            i[1] = (uint32_t)this;
-            asm volatile("lgdt (%0)": :"p" (((uint8_t*)i) + 2));
-            */
-           struct GDTR {uint16_t limit; uint32_t base;} __attribute__((packed));
-           GDTR gdtr;
-           gdtr.limit = sizeof(Gdt) - 1;
-           gdtr.base = (uint32_t)this;
-            asm volatile("lgdt %0" : : "m"(gdtr));
-        }
+: nullSegSelector(0,0,0), unusedSegSelector(0,0,0), codeSegSelector(0, 64*1024*1024, 0x9A), dataSegSelector(0, 64*1024*1024, 0x92) {
+    /* uint32_t i[2];
+    i[0] = sizeof(Gdt) << 16;
+    i[1] = (uint32_t)this;
+    asm volatile("lgdt (%0)": :"p" (((uint8_t*)i) + 2));
+    */
+    struct GDTR {uint16_t limit; uint32_t base;} __attribute__((packed));
+    GDTR gdtr;
+    gdtr.limit = sizeof(Gdt) - 1;
+    gdtr.base = (uint32_t)this;
+    asm volatile("lgdt %0" : : "m"(gdtr));
+}
 Gdt::~Gdt() {}
 
 /* offset 16-bit ptr, selector points to descriptors within the gdt table
@@ -109,12 +106,12 @@ Gdt::SegDescriptor::SegDescriptor(uint32_t base, uint32_t limit, uint8_t type) {
             otherwise 1MB limit tiny */
 uint32_t Gdt::SegDescriptor::Limit() {
     uint8_t* entry = (uint8_t*)this;
-    uint32_t res = (entry[6] << 16) | (entry[1] << 8) | entry[0];
-    if ((entry[6] & 0xC0) == 0xC0) res = (res << 12) | 0xFFF;
+    uint32_t res = entry[6]<<16 | entry[1]<<8 | entry[0];
+    if ((entry[6] & 0xC0) == 0xC0) res = (res<<12) | 0xFFF;
     return res;
 }
 uint32_t Gdt::SegDescriptor::Base() {
     uint8_t* entry = (uint8_t*)this;
-    uint32_t res = (entry[7] << 24) | (entry[4] << 16) | (entry[3] << 8) | entry[2];
+    uint32_t res = entry[7]<<24 | entry[4]<<16 | entry[3]<<8 | entry[2];
     return res;
 }

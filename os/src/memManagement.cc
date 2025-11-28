@@ -89,12 +89,12 @@ void MemManager::free(void* ptr) {
 }
 
 void *operator new(std::size_t size) {
-    if (!os::MemManager::activeMemManager) return nullptr;
-    return os::MemManager::activeMemManager->malloc(size);
+    if (!MemManager::activeMemManager) return nullptr;
+    return MemManager::activeMemManager->malloc(size);
 }
 void *operator new[](std::size_t size) {
-    if (!os::MemManager::activeMemManager) return nullptr;
-    return os::MemManager::activeMemManager->malloc(size);
+    if (!MemManager::activeMemManager) return nullptr;
+    return MemManager::activeMemManager->malloc(size);
 }
 
 void *operator new(std::size_t size, void* ptr)
@@ -103,8 +103,8 @@ void *operator new(std::size_t size, void* ptr)
 }
 
 void operator delete(void* ptr) {
-    if (!os::MemManager::activeMemManager) os::MemManager::activeMemManager->free(ptr);
+    if (!MemManager::activeMemManager) MemManager::activeMemManager->free(ptr);
 }
 void operator delete[](void* ptr) {
-    if (!os::MemManager::activeMemManager) os::MemManager::activeMemManager->free(ptr);
+    if (!MemManager::activeMemManager) MemManager::activeMemManager->free(ptr);
 }

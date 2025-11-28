@@ -56,16 +56,16 @@ namespace os {
         public:
             class SegDescriptor {
                 private:
-                    os::common::uint16_t limit_lo;
-                    os::common::uint16_t limit_hi;
-                    os::common::uint16_t base_lo;
-                    os::common::uint8_t base_hi;
-                    os::common::uint8_t base_vhi;
-                    os::common::uint8_t type;
+                    common::uint16_t limit_lo;
+                    common::uint16_t limit_hi;
+                    common::uint16_t base_lo;
+                    common::uint8_t base_hi;
+                    common::uint8_t base_vhi;
+                    common::uint8_t type;
                 public:
-                    SegDescriptor(os::common::uint32_t base, os::common::uint32_t limit, os::common::uint8_t type);                  
-                    os::common::uint32_t Base();
-                    os::common::uint32_t Limit();
+                    SegDescriptor(common::uint32_t base, common::uint32_t limit, common::uint8_t type);                  
+                    common::uint32_t Base();
+                    common::uint32_t Limit();
             } __attribute__((packed));
         private:
             SegDescriptor nullSegSelector;
@@ -75,8 +75,8 @@ namespace os {
         public:
             Gdt();
             ~Gdt();
-            os::common::uint16_t CodeSegSelector();
-            os::common::uint16_t DataSegSelector();
+            common::uint16_t CodeSegSelector();
+            common::uint16_t DataSegSelector();
     };
 }
 

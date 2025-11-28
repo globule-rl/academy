@@ -7,7 +7,7 @@
         outb: write from al register/cpu to I/O port
     inw word 16, inl long 32
     =a: = output, a -> store in eax/al lower 8-bit, then var res
-        Nd: N 8-bit/0-255/small port num, d -> dx/large port num
+        Nd: N 8-bit/0-255/small port , d -> dx/large port 
     %0: first operand res, _data
         %1: snd operand port
             start from output %0
@@ -16,77 +16,77 @@
     ::input no output <- cpp to assembly 
         assembly: output/cpu out byte %0 to I/O port %1
     jmp: small delay, hw processing time after I/O op before next instruction 
-        jump to next label 1:
+        jump to next label 1
 */
 namespace os {
-    namespace hwcom {
+    namespace hwCom {
         class Port {
             protected:
-                Port(os::common::uint16_t portnum);
+                Port(common::uint16_t port);
                 virtual ~Port();
-                os::common::uint16_t portnum;
+                common::uint16_t port;
         };
         
         class Port8Bit : public Port {
             protected:
-                static inline os::common::uint8_t Read8(os::common::uint16_t _port) {
-                    os::common::uint8_t res;
+                static inline common::uint8_t Read8(common::uint16_t _port) {
+                    common::uint8_t res;
                     __asm__ volatile("inb %1, %0" : "=a" (res) : "Nd" (_port));
                     return res;
                 }
-                static inline void Write8(os::common::uint16_t _port, os::common::uint8_t _data) {
+                static inline void Write8(common::uint16_t _port, common::uint8_t _data) {
                     __asm__ volatile("outb %0, %1" : : "a" (_data), "Nd" (_port));
                 }
             public:
-                Port8Bit(os::common::uint16_t portnum);
+                Port8Bit(common::uint16_t port);
                 ~Port8Bit();
-                virtual os::common::uint8_t Read();
-                virtual void Write(os::common::uint8_t _data);
+                virtual common::uint8_t Read();
+                virtual void Write(common::uint8_t _data);
         };
 
         class Port8BitSlow : public Port8Bit {
             protected:
-                static inline void Write8Slow(os::common::uint16_t _port, os::common::uint8_t _data) {
+                static inline void Write8Slow(common::uint16_t _port, common::uint8_t _data) {
                     __asm__ volatile("outb %0, %1\njmp 1f\n1: jmp 1f\n1:" : : "a" (_data), "Nd" (_port));
                 }
             public:
-                Port8BitSlow(os::common::uint16_t portnum);
+                Port8BitSlow(common::uint16_t port);
                 ~Port8BitSlow();
-                virtual void Write(os::common::uint8_t data);
+                virtual void Write(common::uint8_t data);
         };
 
         class Port16Bit : public Port {
             protected:
-                static inline os::common::uint16_t Read16(os::common::uint16_t _port) {
-                    os::common::uint16_t res;
+                static inline common::uint16_t Read16(common::uint16_t _port) {
+                    common::uint16_t res;
                     __asm__ volatile("inw %1, %0" : "=a" (res) : "Nd" (_port));
                     return res;
                 }
-                static inline void Write16(os::common::uint16_t _port, os::common::uint16_t _data) {
+                static inline void Write16(common::uint16_t _port, common::uint16_t _data) {
                     __asm__ volatile("outw %0, %1" : : "a" (_data), "Nd" (_port));
                 }
             public:
-                Port16Bit(os::common::uint16_t portnum);
+                Port16Bit(common::uint16_t port);
                 ~Port16Bit();
-                virtual os::common::uint16_t Read();
-                virtual void Write(os::common::uint16_t data);
+                virtual common::uint16_t Read();
+                virtual void Write(common::uint16_t data);
         };
 
         class Port32Bit : public Port {
             protected:
-                static inline os::common::uint16_t Read32(os::common::uint16_t _port) {
-                    os::common::uint32_t res;
+                static inline common::uint16_t Read32(common::uint16_t _port) {
+                    common::uint32_t res;
                     __asm__ volatile("inl %1, %0" : "=a" (res) : "Nd" (_port));
                     return res;
                 }
-                static inline void Write32(os::common::uint16_t _port, os::common::uint32_t _data) {
+                static inline void Write32(common::uint16_t _port, common::uint32_t _data) {
                     __asm__ volatile("outl %0, %1" : : "a" (_data), "Nd" (_port));
                 }
             public:
-                Port32Bit(os::common::uint16_t portnum);
+                Port32Bit(common::uint16_t port);
                 ~Port32Bit();
-                virtual os::common::uint32_t Read();
-                virtual void Write(os::common::uint32_t data);
+                virtual common::uint32_t Read();
+                virtual void Write(common::uint32_t data);
         };
     }
 }

@@ -15,11 +15,12 @@
     idt: interrupt descriptor table
         dpl: descriptorprivilegelevel
     pic: programmableIrqController
+            peripheral interface controller
         python write 00 to 0F/13 in hex
             hex => {i:02X} 
             for i in range(16): print(f"static void HandleIrq0x{i:02X}();")
             for i in range(20): print(f"static void HandleException0x{i:02X}();")
-    class IrgHandler;: forward declare cls
+    class IrqHandler;: forward declare cls
     virtual HandleIrq: polymophism override in derive class
     8259 pic i/o port irq mask:  master  cmd    port 0x0020
                                         data         0x0021
@@ -29,41 +30,54 @@
                         slave irq 8-15          0x70 0x70-0x77
             protected mode: conflict w/ cpu exception
                  -> remapping 0-0xF -> 0x20-0x2F
-    each hw irq needs its own tiny assembly entry/register/pin
+    each hw irq -> assembly entry/register/pin
         0x20-0x2F -> irq0 irq1-irq15 16
             exception 0x00-0x13 20
+                0x00 divide by zero
+                0x01 debug
+                0x02 non-maskable
+                0x03 breakpoint
+                0x04 overflow
+                0x05 bound range exceeded
+                0x06 invalid opcode
+                0x07 device not avail
+                ...
  */
 namespace os {
-    namespace hwcom {
-        class IrgHandler;
+    namespace hwCom {
+        class IrqHandler;
         class IrqManager {
             friend class IrqHandler;
             protected:
-                static IrqManager* ActiveIrqManager;
-                IrqHandler* handlers[256];
+                static IrqManager* activeIrqManager;
+                IrqHandler* irqHandlers[256];
                 TaskManager* taskManager;
+                Port8BitSlow picMasterCmdPort;
+                Port8BitSlow picMasterDataPort;
+                Port8BitSlow picSlaveCmdPort;
+                Port8BitSlow picSlaveDataPort;
+                common::uint8_t hwIrqOffset;
 
                 struct GateDescriptor {
-                    os::common::uint16_t handlerAddrLowBits;
-                    os::common::uint16_t handlerAddrHighBits;
-                    os::common::uint16_t gdt_codeSegSelector;
-                    os::common::uint8_t access;
-                    os::common::uint8_t reserved;
+                    common::uint16_t idtHandlerAddrLowBits;
+                    common::uint16_t idtHandlerAddrHighBits;
+                    common::uint16_t gdt_codeSegSelector;
+                    common::uint8_t access;
+                    common::uint8_t reserved;
                 } __attribute__((packed));
                 static GateDescriptor idt[256]; 
                 struct IdtPtr {
-                    os::common::uint16_t limit;
-                    os::common::uint32_t base;
+                    common::uint16_t limit;
+                    common::uint32_t base;
                 } __attribute__((packed));
                 static void SetIdtEntry(
-                            os::common::uint8_t irq,
-                            os::common::uint16_t codeSeg,
-                            void (*handler)(),
-                            os::common::uint8_t DPL, 
-                            os::common::uint8_t DescriptorType);
+                            common::uint8_t irq,
+                            common::uint16_t codeSeg,
+                            void (*idtHandler)(),
+                            common::uint8_t DPL, 
+                            common::uint8_t DescriptorType);
                             
                 static void IrqIgnore();
-
                 static void HandleException0x00();
                 static void HandleException0x01();
                 static void HandleException0x02();
@@ -84,7 +98,6 @@ namespace os {
                 static void HandleException0x11();
                 static void HandleException0x12();
                 static void HandleException0x13();
-
                 static void HandleIrq0x00();
                 static void HandleIrq0x01();
                 static void HandleIrq0x02();
@@ -101,34 +114,26 @@ namespace os {
                 static void HandleIrq0x0D();
                 static void HandleIrq0x0E();
                 static void HandleIrq0x0F(); 
-
                 static void HandleIrq0x31(); 
                 static void HandleIrq0x80(); 
-
-                Port8BitSlow picMasterCmdPort;
-                Port8BitSlow picMasterDataPort;
-                Port8BitSlow picSlaveCmdPort;
-                Port8BitSlow picSlaveDataPort;
-                os::common::uint8_t hwIrqOffset;
-                static os::common::uint32_t HandleIrq(os::common::uint8_t irq, os::common::uint32_t esp);
-                os::common::uint32_t DoHandleIrq(os::common::uint8_t irq, os::common::uint32_t esp);
-
+                static common::uint32_t HandleIrq(common::uint8_t irq, common::uint32_t esp);
+                common::uint32_t DoHandleIrq(common::uint8_t irq, common::uint32_t esp);
             public:
-                IrqManager(os::TaskManager* taskManager, os::common::uint8_t hwIrqOffset, os::Gdt* gdt);
+                IrqManager(TaskManager* taskManager, common::uint8_t hwIrqOffset, Gdt* gdt);
                 ~IrqManager();
-                os::common::uint8_t HwIrqOffset();
+                common::uint8_t HwIrqOffset();
                 void Activate();
                 void Deactivate(); 
         };
 
         class IrqHandler {
             protected:
-                os::common::uint8_t irqNum;
-                IrqManager* irqManager;
-                IrqHandler(IrqManager* irqManager, os::common::uint8_t irqNum);
+                common::uint8_t irq;
+                IrqManager* irqs;
+                IrqHandler(common::uint8_t irq, IrqManager* irqs);
                 ~IrqHandler();
             public:
-                virtual os::common::uint32_t HandleIrq(os::common::uint32_t esp);
+                virtual common::uint32_t HandleIrq(common::uint32_t esp);
         };
     }
 }

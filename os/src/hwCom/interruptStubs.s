@@ -5,13 +5,13 @@
 .section .text
 
 /* h unsigned char, j unsigned int 
-     IrqHandler(IrqManager* irqManager, os::common::uint8_t irqNum);
+     IrqHandler(common::uint8_t irq, IrqManager* irqs);
     stub: 
         fix the stack: cpu exception push err, hw irq push nothing
             -> stub dummy 0 + vector num
         save register
         safe state/cli
-        call handler
+        call irqHandler
         glue
 */
 .extern _ZN2os5hwcom10IrqManager10HandlerIrqEhj
@@ -19,14 +19,14 @@
 .macro HandleException num
 .global _ZN2os5hwcom10IrqManager19HandleException\num\()Ev
 _ZN2os5hwcom10IrqManager19HandleException\num\()Ev:
-    movb $\num, $irqnum
+    movb $\num, $irq
     jmp int_bottom
 .endm
 
 .macro HandleIrq num
 .global _ZN2os5hwcom10IrqManager10HandleIrq\num\()Ev
 _ZN2os5hwcom10IrqManager10HandleIrq\num\()Ev:
-    movb $\num + IRQ_BASE, $irqnum
+    movb $\num + IRQ_BASE, $irq
     pushl $0
     jmp int_bottom
 .endm
@@ -105,10 +105,10 @@ HandleIrq 0x80;
                 load ring 0 -> seg register 0x10/data segselector in gdt
                     es ds critical
                         -> c++ code can safely access global var/stack
-         handler declaration
-            push: HandleIrq(irqnum, esp)
+         irqHandler declaration
+            push: HandleIrq(irq, esp)
         call mangled c++ method IrqManager
-        add $8, %esp: rm 2 arg irqnum esp/8 bytes pushed
+        add $8, %esp: rm 2 arg irq esp/8 bytes pushed
         mov , %esp: return new esp/after task sw/push/pop
             restore correct stack ptr 
 */
@@ -134,7 +134,7 @@ int_bottom:
     #mov %eax, %es
 
     pushl %esp
-    push $irqnum
+    push $irq
     call _ZN2os5hwcom10IrqManager10HandlerIrqEhj
     add $8, %esp
     mov %eax, %esp
