@@ -95,18 +95,18 @@ namespace os {
                 hwCom::Port8Bit attrcWritePort;
                 hwCom::Port8Bit attrcRstPort;
 
-                void WriteRegisters(common::uint8_t* registers);
-                common::uint8_t* GetFrameBufferSeg();
-                virtual common::uint8_t GetColorIndex(common::uint8_t r, common::uint8_t g, common::uint8_t b);
+                void WriteRegisters(uint8_t* registers);
+                uint8_t* GetFrameBufferSeg();
+                virtual uint8_t GetColorIndex(uint8_t r, uint8_t g, uint8_t b);
             public:
                 Vga();
                 ~Vga();
-                virtual bool SetMode(common::uint32_t width, common::uint32_t height, common::uint32_t colorDepth);
-                virtual bool SupportsMode(common::uint32_t width, common::uint32_t height, common::uint32_t colorDepth);
+                virtual bool SetMode(uint32_t width, uint32_t height, uint32_t colorDepth);
+                virtual bool SupportsMode(uint32_t width, uint32_t height, uint32_t colorDepth);
                 
-                virtual void PutPixel(common::int32_t x, common::int32_t y, common::uint8_t colorIndex);virtual void PutPixel(common::int32_t x, common::int32_t y, common::uint8_t r, common::uint8_t g, common::uint8_t b);
-                virtual void PutPixel(common::int32_t x, common::int32_t y, common::uint8_t colorIndex);
-                virtual void FillRectangle(common::uint32_t x, common::uint32_t y, common::uint32_t w, common::uint32_t h, common::uint8_t r, common::uint8_t g, common::uint8_t b);
+                virtual void PutPixel(int32_t x, int32_t y, uint8_t colorIndex);virtual void PutPixel(int32_t x, int32_t y, uint8_t r, uint8_t g, uint8_t b);
+                virtual void PutPixel(int32_t x, int32_t y, uint8_t colorIndex);
+                virtual void FillRectangle(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b);
         };
     }
 }

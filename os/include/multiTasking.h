@@ -29,26 +29,26 @@ namespace os {
         if: irq flag 
     */
     struct CPUState {
-        common::uint32_t eax;
-        common::uint32_t ebx;
-        common::uint32_t ecx;
-        common::uint32_t edx;
-        common::uint32_t esi;
-        common::uint32_t edi;
-        common::uint32_t ebp;
-        common::uint32_t error;
-        common::uint32_t eip;
-        common::uint32_t cs;
-        common::uint32_t eflags;
-        common::uint32_t esp;
-        common::uint32_t ss;
+        uint32_t eax;
+        uint32_t ebx;
+        uint32_t ecx;
+        uint32_t edx;
+        uint32_t esi;
+        uint32_t edi;
+        uint32_t ebp;
+        uint32_t error;
+        uint32_t eip;
+        uint32_t cs;
+        uint32_t eflags;
+        uint32_t esp;
+        uint32_t ss;
 
     };
     /* friend class: access to private/protected members */
     class Task {
         friend class TaskManager;
         private:
-            common::uint8_t stack[4096];
+            uint8_t stack[4096];
             CPUState* cpustate;
         public:
             Task(Gdt* gdt, void entrypoint());

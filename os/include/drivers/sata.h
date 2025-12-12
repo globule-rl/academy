@@ -14,11 +14,11 @@ namespace os {
                 bool master;
                 hwCom::Port8Bit cmdPort;
             public:
-                Sata(bool master, common::uint16_t portBase);
+                Sata(bool master, uint16_t portBase);
                 ~Sata();
                 void Identify();
-                void Read28(common::uint32_t sector, common::uint32_t perSector);
-                void Write28(common::uint32_t sector, common::uint8_t data, common::uint32_t perSector);
+                void Read28(uint32_t sector, uint32_t perSector);
+                void Write28(uint32_t sector, uint8_t data, uint32_t perSector);
                 void Flush();
         };
     }

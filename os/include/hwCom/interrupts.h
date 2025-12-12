@@ -56,26 +56,26 @@ namespace os {
                 Port8BitSlow picMasterDataPort;
                 Port8BitSlow picSlaveCmdPort;
                 Port8BitSlow picSlaveDataPort;
-                common::uint8_t hwIrqOffset;
+                uint8_t hwIrqOffset;
 
                 struct GateDescriptor {
-                    common::uint16_t idtHandlerAddrLowBits;
-                    common::uint16_t idtHandlerAddrHighBits;
-                    common::uint16_t gdt_codeSegSelector;
-                    common::uint8_t access;
-                    common::uint8_t reserved;
+                    uint16_t idtHandlerAddrLowBits;
+                    uint16_t idtHandlerAddrHighBits;
+                    uint16_t gdt_codeSegSelector;
+                    uint8_t access;
+                    uint8_t reserved;
                 } __attribute__((packed));
                 static GateDescriptor idt[256]; 
                 struct IdtPtr {
-                    common::uint16_t limit;
-                    common::uint32_t base;
+                    uint16_t limit;
+                    uint32_t base;
                 } __attribute__((packed));
                 static void SetIdtEntry(
-                            common::uint8_t irq,
-                            common::uint16_t codeSeg,
+                            uint8_t irq,
+                            uint16_t codeSeg,
                             void (*idtHandler)(),
-                            common::uint8_t DPL, 
-                            common::uint8_t DescriptorType);
+                            uint8_t DPL, 
+                            uint8_t DescriptorType);
                             
                 static void IrqIgnore();
                 static void HandleException0x00();
@@ -116,24 +116,24 @@ namespace os {
                 static void HandleIrq0x0F(); 
                 static void HandleIrq0x31(); 
                 static void HandleIrq0x80(); 
-                static common::uint32_t HandleIrq(common::uint8_t irq, common::uint32_t esp);
-                common::uint32_t DoHandleIrq(common::uint8_t irq, common::uint32_t esp);
+                static uint32_t HandleIrq(uint8_t irq, uint32_t esp);
+                uint32_t DoHandleIrq(uint8_t irq, uint32_t esp);
             public:
-                IrqManager(TaskManager* taskManager, common::uint8_t hwIrqOffset, Gdt* gdt);
+                IrqManager(TaskManager* taskManager, uint8_t hwIrqOffset, Gdt* gdt);
                 ~IrqManager();
-                common::uint8_t HwIrqOffset();
+                uint8_t HwIrqOffset();
                 void Activate();
                 void Deactivate(); 
         };
 
         class IrqHandler {
             protected:
-                common::uint8_t irq;
+                uint8_t irq;
                 IrqManager* irqs;
-                IrqHandler(common::uint8_t irq, IrqManager* irqs);
+                IrqHandler(uint8_t irq, IrqManager* irqs);
                 ~IrqHandler();
             public:
-                virtual common::uint32_t HandleIrq(common::uint32_t esp);
+                virtual uint32_t HandleIrq(uint32_t esp);
         };
     }
 }

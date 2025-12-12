@@ -5,7 +5,7 @@
 .section .text
 
 /* h unsigned char, j unsigned int 
-     IrqHandler(common::uint8_t irq, IrqManager* irqs);
+     IrqHandler(uint8_t irq, IrqManager* irqs);
     stub: 
         fix the stack: cpu exception push err, hw irq push nothing
             -> stub dummy 0 + vector num

@@ -7,7 +7,7 @@ namespace os {
     namespace gui {
         class Desktop: public CompositeWidget, public drivers::MouseEvhandler {
             public:
-                Desktop(common::int32_t w, common::int32_t h, common::uint8_t r, common::uint8_t g, common::uint8_t b);
+                Desktop(int32_t w, int32_t h, uint8_t r, uint8_t g, uint8_t b);
                 ~Desktop();
         };
     }

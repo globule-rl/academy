@@ -9,14 +9,14 @@
                         
 */
 
-
 namespace os {
     namespace net {
         class Arp {
             public:
-                Arp(Efp* etherFrame);
+                Arp(EtherFrame* etherFrame);
                 ~Arp();
                 void BroadcastMacAddr(uint32_t gip);
+                uint64_t ResolveMac(uint32_t ip);
         };
     }
 }

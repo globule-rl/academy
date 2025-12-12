@@ -20,7 +20,7 @@ namespace os {
                 KeyboardDriver(KeyboardEvHandler* kEvHandler, hwCom::IrqManager* irqs);
                 ~KeyboardDriver();
                 virtual void Activate();
-                virtual common::uint32_t HandleIrq(common::uint32_t esp);
+                virtual uint32_t HandleIrq(uint32_t esp);
         };
     }
 }

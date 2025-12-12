@@ -23,7 +23,7 @@ jobs:
       - run: make test
 
       - name: Upload res
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-res
           path: testReport.txt
@@ -40,16 +40,16 @@ jobs:
 
       - name: Build iso
         run: make mykernel.iso
+      
+      - name: Save
+        run: |
+          mkdir -p output
 
       - name: Upload res
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: kernel-build
-          path: |
-            kernel
-            *.bin
-            *.elf
-            *.img
+          path: output/
         if: always()
       - name: Check status
         if: failure()

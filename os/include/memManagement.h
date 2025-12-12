@@ -14,15 +14,15 @@ namespace os {
         MemChunk *next;
         MemChunk *prev;
         bool allocd;
-        common::size_t_32 size;
+        size_t_32 size;
     };
     class MemManager {
         protected: MemChunk* first;
         public: 
             static MemManager *activeMemManager;
-            MemManager(common::size_t_32 first, common::size_t_32 size);
+            MemManager(size_t_32 first, size_t_32 size);
             ~MemManager();
-            void* malloc(common::size_t_32 size);
+            void* malloc(size_t_32 size);
             void free(void* ptr);
     };
 }

@@ -24,22 +24,22 @@ namespace os {
             public:
                 MouseEvHandler();
                 virtual void OnActivate();
-                virtual void OnMouseDown(common::uint8_t btn);
-                virtual void OnMouseUp(common::uint8_t btn);
+                virtual void OnMouseDown(uint8_t btn);
+                virtual void OnMouseUp(uint8_t btn);
                 virtual void onMouseMove(int x, int y);
         };
         class MouseDriver: public Driver, public hwCom::IrqHandler {
             hwCom::Port8Bit cmdPort;
             hwCom::Port8Bit dataPort;
-            common::uint8_t buffer[3];
-            common::uint8_t offset;
-            common::uint8_t btns;
+            uint8_t buffer[3];
+            uint8_t offset;
+            uint8_t btns;
             MouseEvHandler* mEvHandler;
             public:
                 MouseDriver(MouseEvHandler* mEvHandler, hwCom::IrqManager* irqs);
                 ~MouseDriver();
                 virtual void Activate();
-                virtual common::uint32_t HandleIrq(common::uint32_t esp);
+                virtual uint32_t HandleIrq(uint32_t esp);
         };
     }
 }

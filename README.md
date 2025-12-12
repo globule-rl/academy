@@ -13,7 +13,8 @@
     - [x] verilog/gtkwave/verilator
     - [x] web
     - [ ] design pattern
-    - [ ] wiping/toy robot
+    - [ ] toy robot
+    - [ ] wiping robot
     - [ ] motor controller
 
 ## lan
