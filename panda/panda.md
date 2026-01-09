@@ -421,7 +421,234 @@
         event init, time, valid
 
 ## msgq
-
+    light weight msg queue
+    bool num reader > 0
+        updated/all read valid/equal/read up to cur write ptr pos
+    poll
+        periodically check for new msgs
+            long/wait time
+        msg ready/read ptr = write
+            init sub
+            if num exceeds, =0 reset/no inactive ones/valids[i]=false
+            thread signal/kill tid/read->old uid
+                macos no sys_tkill->rely on polling
+            atomic compare-swap *__o == *__e -> *__o = __d, true
+                else set expected/*__e = *__o/update, false
+                two sub start at the same time    
+                lock-free sync/concurrent
+                    thread safe wrapper/no thread blocking
+                    cpu level/low-level primitives
+                read sync to write pos ,reader valid
+                    start with false, first read sync
+                reader_id, uid, reader_ptr
+            reset
+            read/write
+                cycles, pointer
+        num++
+        timeout ms
+            macos poll more frequently/min 10
+                 <- signals cant irq nanosleep
+        timespec nanosleep
+            poll_ms -> ts
+            sleep for duration 
+            check msg ready
+                cnt+=1
+                repeat till msg ready
+            avoid busy-waiting
+        apple: exit if timeout remaining_ms <=0
+        ret num
+    msg recv
+        reader_id/sub initialized
+        uid local == uids[id]
+            otherwise init sub
+        goto: transfer control to loc/label
+        valid
+        read/write higher/cycles lower/ptr, inp/read_ptr[id]
+            u32 <- unpack/combine 64
+            save space/efficient transfering data
+        *ptr = data + read_ptr
+        msg avail
+            read == write ptr, synced/no new msg/msg->size =0
+            else new msg
+        msg size valid
+        size = -1, buf full
+            circular buff wrap around/back to start
+            cycles++
+            -> pack64 atomically read_ptr/cycles
+        assert size >0, max
+            crash better than pass garbage data to consumer
+        align new ptr += size
+        conflate: skip bufed msg, only the latest
+            ck its latest/read=write ptr
+            else theres new msg 
+                pack64/upd ptr, goto start to grab the latest
+        init size/structure
+            alloc buf for size/metadata
+            <0 -1/alloc failure
+        sync
+        memcpy data <- queue buf p/data+ptr + size + header/8
+        upd ptr
+        valid
+    msg send
+        uid not local -> kill pub/q->endpoint
+        total size: align/round up to cache line/boundary detection
+             size+header/8
+        assert 3 * size 
+            at least 3 msg in the queue
+            to fetch latest/last msg safely
+        unpack64 write cycles/ptr, queue_ptr
+        base offset: data + write_ptr
+        remaining space for wraparound tag for next msg/alignment
+            <=0: p=-1
+            invalid all readers > write ptr, cycle read != write
+            upd global/local write ptr pack64/cycle+1
+            ptr -> data seg beginning
+        invalid readers in write area
+            start w_ptr, end align start+size+header
+            num loop
+                unpack64 read
+                invalid start-end
+        write *size_p msg->size
+        memcpy p+header <- msg->data
+        upd ptr pack
+        thread_signal: notify reader
+        ret msg->size
+    init pub
+        uid num_reader
+        invalid, uid=0
+        write uid local <- uid
+    new queue
+        buf smaller than 2^32
+        signal usr2 handler callback async <- thread_signal()
+        path apple/linux
+            prefix + '/'
+            file fd path rw
+            rc/return code from ftruncate size+header
+                0 sucess, <0 err
+        prealloc env mmap flag/populate
+        nmap_p = mem <- mmap rw flag fd
+        *header <- *mem
+        ptrs to header
+            num_readers/atomic ullong, w_ptr, w_uid <- (header->ptrs)
+        num loop
+            r_ptr, r_valids, r_uid <- header
+        q->data, size, id, ep/path, confalte false
+    close queue
+        != Null: munmap
+    reset store atomically
+    msg close
+        delete msg->data
+        size=0
+        ret 0
+    setup.sh -> test.sh lefthook run test/lint+test
+        install dependencies
+            Darwin install zeromq venv libzmq3 opencl
+        catch2 cpp unit test -> /tmp/catch2
+        uv venv
+    scons/pkg dir
+        visionipc interprocess communication/sync, alloc by kernel
+            shared mem by process a & b
+            msg passing
+            build
+            lib
+        vipc_obj <- shared obj .so file
+        frameworks [] /libs
+            opencl
+        extra: test
+    unit test catch2 "[integration]"
+        1 pub 2 subs
+            cleanup test queue
+            new writer -> init pub
+            new reader1 reader2 queues -> init sub
+            send msg ==> recv msg1 msg2
+            REQUIRE() size header, data i
+            close msgs
+        1 pub 1 slow sub
+            1e5 100,000 buf size 100kb
+            1024*3=3kb
+            REQUIRE() % 10 6:1 ratio
+                recv 8572 6 size !=0
+                skip 1428 1 size 0
+        2 pub 2 sub conflate
+            msg_size 128
+            msg1
+                REQUIRE == msg_size
+                memcmp(in, out, size) == 0
+            msg2 == 0
+        2 pub 2 sub conflate false
+            msg2 == msg_size
+        1 pub 1 sub
+            msg2 == 0
+        init sub init 2 sub
+            REQUIRE num_readers 1 2
+                reader_id 0 1
+        invalidation
+            sub.w_ptr 1<<32 2^32 cycle/high+buf/low
+            REQUIRE valids[0] true
+            r only at start
+                r_ptr 0/tag/header/meta 64/data
+                w_ptr 1<<32|1000/cycle 1, pos 1000 wrapped
+                r_ptr 1020/cycle 0, hasnt wrapped yet
+                    r in prev cycle vs w
+            REQUIRE valid false
+        wraparound
+            init w_ptr>>32 == r_ptr>>32 == 0
+            recv 
+                only w, no r
+                    msg.size == 0, needs to reset
+                w r alternate in loop {}
+                    >0 cnt while keeping up w/ w
+                REQUIRE r_ptr[0]>>32 == 1
+                    after 8 msgs, cycle cnt +1/wrapped once/high bits track cycle
+            send
+                w init 0
+                REQUIRE 
+                    8th msg written at the beginning/size+header
+                    cycle cnt >>32 ==1
+                    wraparound tag loc/data +=7*size == -1
+    pytest sub socket
+        recv timeout assert
+            timeout monotonic - start < timeout
+            recv not None
+        conflate
+            random socket, randinit->num_msgs, conflate true/false
+            random bytes -> pub msgs, recv msg <- sub socket
+            if conflate, assert len == 1, [0] == [-1]
+            else, len == len(sent_msg), recv == sent
+    visionipc interprocess communication
+        w/ fds
+            memset control_buf <- controlmsg_size*num_fds/file/socket descriptor
+            struct
+                iovector base/buf ptr, len/buf_size -> single buf
+                msg header &iov/ptr to addr, len=1/1 entry
+                    multiple bufs in one syscall
+            control len
+            send cmsg socket level/sol, type/socket ctl msg, len/size
+                memcpy data <- fds, send
+            else recv
+                assert cmsg, level, fds>0, memcpy
+                flags -> close(fds[i])
+                out_num_fds = recv_fds
+        bind
+            unlink path
+            bind(sock, addr), err 0, listen sock
+        connect(sock, addr)
+            err !=0 close ret -1
+    impl
+        poll evs: subsocket r [] <- push_back(sockets[i])
+                num_polls
+            recv
+            connect addr new_queue
+        zmq poll zero message queue
+            num_polls within timeout ms
+            ret num_socket, -1 err
+                avoid busy_waiting/blocking until open
+            ep tcp://* += port
+    event
+        socket ev handle 
+            ena, recv, fake ev/prefix
+        ev set, clear, peek, valid, fd, 
+            wait pollfd, timeout, signals ev_cnt
 
 ## openpilot controlsd.py
     config realtime
@@ -813,6 +1040,34 @@
             release mem/inp img buf
             destroy cl cmd queue
 
+## laika
+    gnss satellite processing lib -> pos/velocity
+    walkthru
 
 ## simulator
-## laika
+    setup
+        tools/op.sh setup
+        source .venv/bin/activate
+        scons -u -j$(nproc)
+    ctf 
+        tools/ selfdrive/debug/
+        tools/replay 
+            ./replay '0c7f0c7f0c7f0c7f|2021-10-13--13-00-00' --dcam --ecam
+        selfdrive/ui/ui 
+            seeking in replay
+    metadrive
+        tools/sim/launch_openpilot.sh
+        ./run_bridge.py -h
+            engage 2
+                up speed 1
+                down speed 2
+            | key  |   functionality       |
+            |------|-----------------------|
+            |  1   | Cruise Resume / Accel |
+            |  2   | Cruise Set    / Decel |
+            |  3   | Cruise Cancel         |
+            |  r   | Reset Simulation      |
+            |  i   | Toggle Ignition       |
+            |  q   | Exit all              |
+            | wasd | Control manually      |
+
