@@ -101,10 +101,7 @@
         fault tick/timer 8hz irq 10ms
             siren pulsing
                 countdown
-
-        usb
-        spi
-        irq
+        usb, spi, irq
         led blink/fade increase, ON longer, OFF shorter, pulse smoothly
             pattern breaks -> sys overload
     wfi wait for irq, lowe-power sleep till irq
@@ -237,7 +234,6 @@
     set SIZ size 32UL<<19 32 pkts(shift to bit 19 pos) of 0x800U 2048 bytes transfer size
     ENA enable to accept data | CNAK clear NAK/refusing data bit
     exit critical
-
     usb port
     irq handler
         gintsts global irq status reg
@@ -256,7 +252,6 @@
         endpoint
             in, out
         clear handled irq
-
     usb set_up
         hex 0x0040U
         device desc/version/len, type
@@ -361,7 +356,7 @@
 
 ## math
 ### time quanta/split 8 for 1mbp
-        1 megabits per sec when prescaler*8/clk = 1us
+    1 megabits per sec when prescaler*8/clk = 1us
     bit time on CAN bus divided into series of quanta
      ~~quanta = (prescaler + 1)/clk~~
     prescaler/baudrate prescaler brp
@@ -396,7 +391,7 @@
                 bus3 for can1/2
 
 ## capnp
-    serialize, like json, fast obj
+### serialize, like json, fast obj
     aligned buf
         words_size calc size/word
             min 512 words
@@ -404,7 +399,7 @@
         ret arrptr to buf
         inline extract data from obj
         private storage persist across calls
-    pubmaster wrapper
+### pubmaster wrapper
         serialized msg -> socket based on name id
     submaster
         upd, alive, valid
@@ -412,7 +407,7 @@
         msgs, service_list
 
 ## cereal
-    msg builder
+### msg builder
         heaparray ptr msg/*this obj->arr->bytes
         serialize obj *this/binary to buf for storage/transmission
             size <= buf
@@ -421,10 +416,10 @@
         event init, time, valid
 
 ## msgq
-    light weight msg queue
+### light weight msg queue
     bool num reader > 0
         updated/all read valid/equal/read up to cur write ptr pos
-    poll
+### poll
         periodically check for new msgs
             long/wait time
         msg ready/read ptr = write
@@ -457,7 +452,7 @@
             avoid busy-waiting
         apple: exit if timeout remaining_ms <=0
         ret num
-    msg recv
+### msg recv
         reader_id/sub initialized
         uid local == uids[id]
             otherwise init sub
@@ -479,7 +474,7 @@
             crash better than pass garbage data to consumer
         align new ptr += size
         conflate: skip bufed msg, only the latest
-            ck its latest/read=write ptr
+            check its latest/read=write ptr
             else theres new msg 
                 pack64/upd ptr, goto start to grab the latest
         init size/structure
@@ -489,7 +484,7 @@
         memcpy data <- queue buf p/data+ptr + size + header/8
         upd ptr
         valid
-    msg send
+### msg send
         uid not local -> kill pub/q->endpoint
         total size: align/round up to cache line/boundary detection
              size+header/8
@@ -517,7 +512,7 @@
         uid num_reader
         invalid, uid=0
         write uid local <- uid
-    new queue
+### new queue
         buf smaller than 2^32
         signal usr2 handler callback async <- thread_signal()
         path apple/linux
@@ -540,12 +535,12 @@
         delete msg->data
         size=0
         ret 0
-    setup.sh -> test.sh lefthook run test/lint+test
+### setup.sh -> test.sh lefthook run test/lint+test
         install dependencies
             Darwin install zeromq venv libzmq3 opencl
         catch2 cpp unit test -> /tmp/catch2
         uv venv
-    scons/pkg dir
+### scons/pkg dir
         visionipc interprocess communication/sync, alloc by kernel
             shared mem by process a & b
             msg passing
@@ -555,7 +550,7 @@
         frameworks [] /libs
             opencl
         extra: test
-    unit test catch2 "[integration]"
+### unit test catch2 "[integration]"
         1 pub 2 subs
             cleanup test queue
             new writer -> init pub
@@ -606,7 +601,7 @@
                     8th msg written at the beginning/size+header
                     cycle cnt >>32 ==1
                     wraparound tag loc/data +=7*size == -1
-    pytest sub socket
+### pytest sub socket
         recv timeout assert
             timeout monotonic - start < timeout
             recv not None
@@ -615,7 +610,7 @@
             random bytes -> pub msgs, recv msg <- sub socket
             if conflate, assert len == 1, [0] == [-1]
             else, len == len(sent_msg), recv == sent
-    visionipc interprocess communication
+### visionipc interprocess communication
         w/ fds
             memset control_buf <- controlmsg_size*num_fds/file/socket descriptor
             struct
@@ -651,10 +646,10 @@
             wait pollfd, timeout, signals ev_cnt
 
 ## openpilot controlsd.py
-    config realtime
+### config realtime
         linux, not pc
         scheduler, affinity
-    init
+### init
         cp car params
             fingerprint
             live state assistance
@@ -681,12 +676,12 @@
                     saturation_time limit
                         output not limited by torque/angle limit
                         += dt delta time
-    upd
+### upd
         live calibrator
             euler angle roll/pitch/yaw
             -> rotation matrix 3x3
         live pose/measurement xyz/orientation/velocity/accel
-    state control
+### state control
         upd
             vehicle steer ratio, params
             steer angle, curvature
@@ -705,7 +700,7 @@
             upd steer angle degree
             actuator torque, steering angle
         ret car_control lac_log
-    publish
+### publish
         cur curvature
         calib frame -> car controller
             pose orientation/angular velocity
@@ -725,7 +720,7 @@
                     angle [-1...1]
                     pid
                     torque
-    run
+### run
         upd
         state_control
         publish
@@ -735,41 +730,30 @@
             monitor time
 
 ## plannerd.py
-    cp car params
+### cp car params
         msg bytes->log
     ldw lane departure warning
-    longitudinal planner
+### longitudinal planner
         mpc model predictive control
-        acc
-        cp car params
+        acc, cp car params
         fcw forward collision warning
-        desired
-        prev
-        out
-        trajectory
+        desired, prev, out, trajectory
         parse_model
             interpolated
             pos, velocity, accel
             throttle_prob
         upd
             mode blended, experimental, acc
-            ego
-            cruise
-            decel
-            reset
-            clip prev
-            desired
-            set_weights constraint
-            cur state
-            interp()
+            ego, cruise, decel, reset
+            clip prev, desired, set_weights constraint
+            cur state, interp()
             output -> target
         pub
-            msg
-            valid
+            msg, valid
             plan, time, delay
             speed, accel, jerk, fcw
             target, stop, allow brake, throttle
-    pub longplan driver assist
+### pub longplan driver assist
         drive helper
             limit/clip velocity/val min_speed, avoid divide 0
             basic curv psi/yaw angle target/vego*action
@@ -782,7 +766,7 @@
                 roll compensation, accel dut to gravity
                 new_curvature clamp() float(clip())
     sub cc cs params radar model
-    sub upd
+### sub upd
         long_planner upd, pub
         ldw upd
         new msg assistance
@@ -790,7 +774,7 @@
         pub send msg
 
 ## camera daemon
-    config
+### config
         wide road
         road
         driver
@@ -798,14 +782,14 @@
         isp image signal processor raw frame
         ife image front end fully processed
         bps bytes per sec fully processed
-    v4l video4linux
+### v4l video4linux
         iterate thru avail devices
         open by name index
     cal exposure val
         pix_ptr/x y -> out img width -> luminance
         mean luminance val
             iterate 255-0, accumulate from histogram till middle
-    raw frame
+### raw frame
         heaparr buf->addr buf->len
         memcpy len -> addr
     img from device
@@ -816,7 +800,7 @@
         /[:, 2:3] divide xyz by z, convert 3d to 2d
         keep only xy, drop z [:, :2] after normalization
         reshape/restore img dim
-    device from ecef frame
+### device from ecef frame
         earth-centered earth-fixed coord
         x forward, y right, z down
         np view as 2d
@@ -824,7 +808,7 @@
         rel translate pt relative to device pos
         einsum() matrix multiplication -> rotate rel pt to device frame
         restore inp
-    vp vanishing point calib
+### vp vanishing point calib
         intrinsics/internal property
             3d->2d focal len, principal pt/center, skew
             extrinsics: pos in the world
@@ -843,7 +827,7 @@
         roll 0
     denormalize
         isfinite >width -> nan
-    ke extract roll matrix-> intrinsics x essential/extrinsic matrix
+### ke extract roll matrix-> intrinsics x essential/extrinsic matrix
         pitch xy
         yaw z
         roll
@@ -852,7 +836,7 @@
         x infinity parallel lines along x-axis
             dominated by x
             divide by depth
-    view/camera/dest frame from calib/world/src/ref frame
+### view/camera/dest frame from calib/world/src/ref frame
         extrinsic transform from calib to view
             describe camera pose relative to calib
         3x4 get rotation from euler angles/roll pitch yaw
@@ -869,9 +853,9 @@
         extrinsic
 
 ## model
-    parse arg
+### parse arg
     cl context
-    model state
+### model state
         frame
             run//context
         desire 0->1 rising edge & not prev_desire == inp
@@ -918,11 +902,11 @@
                         else: downsample/arrange, every env/model fps-th ele
 
             combine/concat vision+policy
-    stream: camerad main
+### stream: camerad main
         extra client in avail
         wide camera not in avail_streams
-    pub: model, drivingdata, camera odometry
-    sub device, car, road state, live calib, monitor, control
+### pub: model, drivingdata, camera odometry
+### sub device, car, road state, live calib, monitor, control
     filter: track dropped frames
     main, extra
         transform
@@ -932,7 +916,7 @@
         live calib false
     demo
     delay .2s
-    desire helper
+### desire helper
         lane change dir none/left/right
         off: dir <- blinker prevent ui flickering
         prelanechange:
@@ -944,7 +928,7 @@
         timer
         prev_blinker = blinker
         pulse_timer +=, only once, others none 0
-    while true
+### while true
         keep receiving frames until 1 frame ahead of prev
         buf_main = recv()
         extra client keep receiving til match main
@@ -972,14 +956,14 @@
                 send model/driving lane change stat/dir
             pm send model/drive/camera
             last = main
-    tinygrad helper
+### tinygrad helper
         qcom tensor from opencl addr
             extract raw gpu ptr from cl mem, wrap in tensor
                 read 8-byte ptr to cl buf descriptor
                 offset 0xA0
                 create tensor directly from gpu mem w/o copying
             avoid data transfer overhead, using gpu mem
-    parse out
+### parse out
         vision: pose, wide, road, lane
             parse mdn/mixture density network: plan
                 out prob distribution, not just pt
@@ -1011,7 +995,7 @@
         policy mhp/multimodal hypothesis prediction
             out multiple predictions: plan
             catagorical cross entropy: desire state
-    driving model frame:
+### driving model frame:
         initialize gpu buf
             input_frames: raw frame data
             input_cl: inp frame
@@ -1027,7 +1011,7 @@
             copy transformed + last frame
             finish sysc to ensure gpu work complete before model run
             ret ptr to inp_frame_cl, gpu buf ready for inference
-    monitoring modelframe:
+### monitoring modelframe:
         inp frames cl/create buf
         init transform
         prepare
@@ -1041,8 +1025,507 @@
             destroy cl cmd queue
 
 ## laika
-    gnss satellite processing lib -> pos/velocity
-    walkthru
+### gnss satellite processing lib -> pos/velocity
+    einstein general relativity: 38 ms per day clk faster on sat than gnd
+    compute station pos
+        ecef earth centered earth fixed coord
+        dog.cache_dir -> file -> obs data/rinex/gnss data 
+            -> proc, corr -> local coord converter from slac center 
+            -> fix/est err ecef[:3]/first 3 col to ned local
+        slac vs cic vs c2p signal
+            ned north east down, down has most variation
+            mean
+        glonass vs gps prob distribution
+            global navigation satellite system --russia
+            global positioning system -- us
+            gssc.esa.int nauipedia
+### walkthru
+        constellation -> dog process, est_pos_fix, corr meas_epoch
+            -> recv pos est
+        satellite prn/pseudo-random noise 
+            pos vel clk_err
+            delay corr
+                tropo/lower ionospheric/higher freq
+                dcb/differential code biases/hardware corr
+        plot sat orbit
+            12h
+            rescale, arr/256 -> rgb -> shape lons lats fig -> x y z
+            ax subplot sample every 4th col
+                limit 2.5e7 25m/ earth radius 6m
+                box aspect equal scaling/no distortion
+                pos
+        1-min higway drive pos, vel
+            arr -> obj -> measurements by epoch/sat plotting
+                epoch a particular period of time
+                -> no. of sat
+        prr pseudorange-rate
+            from doppler shifter each sat over time
+                sat move towards, signal freq increases
+            d1c l1 freq, civilian gps signal, obs
+            tow time of week
+        cp carrier phase prediction <- prev
+            around 0 prediction from perfect meas/measurements
+                incre = prr rate*time delta dt
+        plot the world
+            ecef vel est
+            residuals of prr in velocity
+            pos est
+                earth radius -> x y z
+                epoch
+                    sat pos/np arr
+            local coord/gnss
+                converter sat pos
+                x/azimuth/horizontal angle from north y/vertical angle from horizon
+                    dop/dilution of precision high when x y similar
+                sat high elevation vs low -> diff precision
+### kalman filter 
+        recursive best guess, normal/gaussian distribution, linear estimator
+        combine/weight noisy, partial changing data over time
+             -> a single est for pos, t, vel
+             gain: weight to meas & current state est, tuned
+        diff from ublox recvr raw data
+            ublox gnss receiver
+        log arr -> dog process corr -> build cache
+        group meas by epoch/faster, easier to reason
+        wls weighted least squares, est obs->model weighting by reliability/inv var
+            -> output data -> laika pos
+        ck -> gmap plotter
+### astrodog
+        valid latest data   
+            closest min(candidate delta epoch) by norm(recv_pos-can_pos)
+            download data func
+        delay dgps
+            correction cached = latest data
+        sat_info prn data
+            dcb differential code bias/hw diff, cached/downloaded from sat prn data, cache
+            trop_delay trklib time, pos, el, humi, temp
+            iono_delay ionexmap parsed from sat prn data, freq
+                freq constellation/8 gps
+            hierarchy approach
+                orbits download sp3 3-day time step polynomial fitting
+                    thread pool executor/parallel efficiency
+                    orbit files from server/igs, cnt
+                    parse sp3 file -> obj
+                    ephemeris sat orbital interval data
+                        min-max -> min_epoch, max_epoch
+                navs
+                    broadcast from rinex nav files/fallback
+                    tgd time group delay/ionospheric delay corr
+                        diff delay between l1 l2 freq -> corr meas
+                    gpstime begin_day end_day
+                qcom qualcomm polynomial ephemeris/device backup
+### dgps
+        closest station name/id, pos, tree, idxs
+        parse
+        corr/delay
+### timerangeholder
+        test if date in sparse ranges
+        extend/create range
+### sv space vehicle/sat identifier
+        sat id/meas ranges -> constellation/gps prn[0] -> prn[1:] sv id -> offset
+### dop
+        hdop/horizontal, vdop, tdop/time, pdop
+        ecef local -> 2ned/north west down relative -> norm -> col shape -> inv
+### ublox receiver raw->rinex format
+        c1c pseudorange in l1 freq c-code sigId==0 10x
+        d1c doppler shift -> psudorange-rate l1 freq/offset
+        l1c carriercycle l1, store
+        s1c/cno signal strength db-hz, store signal-to-noise ratio
+
+## agno-builder
+### tools/extract_tools.sh
+        arch/architecture cross-compilation !arm64
+        extract tarball .tar.gz tape archive gnuzip/compress/zip if not already
+            &>/dev/null suppress output
+        git grep `-`/lfs ptr, pull large file storage obj
+            awk text processing line-by-line, splitting into fields
+                print 2nd col/extract name
+### build_kernel.sh
+        defconfig/default kernel config
+        dir
+        boot img
+        macos apfs/apple file sys case-sensitive 
+        docker build uid name, user/gid group
+            container -d/detached, -v/volume flag, -w/working dir
+            rm -r container_id
+        clone git submodule status --cached | grep "^-" -> update --init
+        tools/extract_tools.sh -> arch tar git lfs
+        build params export cross-compilation, arm64, cache dir, host docker
+            kcflags disable warnings, load defconfig
+            nproc build kernel
+                no. of processor scons -j4/4 jobs/build cmd in parallel
+            cp image temp_dir dir/ 
+            tools/mkbootimg image, ramdisk null, cmdline console, pagesize, base
+            kernel/ramdisk/tags offset, output
+        le/little endian signing/openssl
+            dgst/cryptographic digest tool -sha256/hash boot img nonsecure 
+                >/output
+            dd/disk dump utility/cp data, if/infinite zeros, of/ouput 
+                bs/block size cnt/block
+            cat nonsecure sig.padded > $boot_img
+        cp/mv img -> output_dir
+        run kernel in docker exec
+### build_system.sh
+        ubuntu base if not, file, checksum/check sha256 sum
+        dir build, output, rootfs, buld/img -> output/sys.img
+        partition 4500m 10g
+        tmp dir
+        qemu x86_64 -> multiarch/user-static
+        docker buildx
+            docker buildkit check dir
+            start build nsc/namespace container, bind-mount via container
+                nsc build --load
+            build dockerfile.agnos -> dir linux/arm64
+            containerid = create entrypoint /bash
+            check docker build dir
+            meta/mount helper for macos/ci/namespace.so restricted
+                docker build img in idr, load to local
+            trap/cleanup container_id on exit
+        docker -u/switch same user as script $@/pass all args
+        docker exec mount container_id
+        fallocate/prealloc disk space image size mkfs.ext4 img
+            mount roofs dir <- image
+            trap/run on exit/overwrite prev trap
+                umount dir, docker rm container_id
+        docker export .tar, tar .
+            rm dockerenv
+        network hostname host, resolv.config, ping setcap
+            write build time/info
+        git hash
+        exec_as_root umount rootfs_dir 
+        exec_as_user img/sparsify rootfs_img -> out_img
+### dockerfile.agnos
+        ubuntu/agno-compiler pkg compilation
+            run apt-get update install pkgs
+            env
+            from cp run, cache, target, sharing
+                capnp, ffmpeg/optimized bin, libqmi
+                modemanager, lpac, qtwayland5.sh
+        agnos-base/scratch as
+            arg add ubuntu_base_image
+            run mkdir set -xe/stop on err, arg username
+            run echo resovconf, cp run base_setup.sh
+            cp run/install openpilot dependencies.sh
+            cp run/.deb qt libwayland debs
+        from agnos-base hw setup
+            run cp debs setup.sh, mv data/persist -> system
+                rm data/
+            cp libqmi/qualcomm msm interface comm
+                modemanager/mobile broadband modem
+                lpac/esim local sim profile assistant
+                --from= pre-built bin, avoid recompilation
+            run apt-get update install py lib polkit 
+                overwrite libqmi/mode/lpac
+        install
+            cp pre-compiled capnp, run capnproto.deb
+                pre-compiled ffmpeg
+            cp uv, venv, opencl, compile bytecode
+                python pkg
+            cp run install_extras.sh
+            cp run qtwayland5.deb 
+            cp .patched libeglsubdriverwayland.so
+                fixed nullptr deref bug in commitbuffer()
+        config
+            cp home/usename .config
+            cp/populate/layer/freq-changed files last to cache earlier layers
+                /lib .path .mount .service .timer override.conf fw/
+                /etc fstab/table profile .rules .conf log, run .conf systemd
+                /usr username font gnu abihf/app bin interface 
+                    hw floating-point -> fast math op
+            cp linux-headers.deb, run dpkg 
+                large file, build on device
+            cp weston/wayland compositor/display, gl-renderer.so/shared obj lib
+                opencl lib gpu acceleration for rendering
+                hacked touch rotate, color corr
+            cp/setup services.sh
+            run update-motd/msg of the day, cp root
+                msg displayed when users log in
+            cp devices.conf, networkmanager.conf
+                manager eth0
+            cp .nmconn, run chmod 600 .nmconn
+                add cellular conn
+            run echo -> gai.conf "precedence::fff" 
+                ipv4 over ipv6
+            cp logind.conf removeipc=no
+                prevent logind delete shm/shared mem, persist
+            cp/restart avahi-daemon override.conf
+                sys drop-in file dns-sd, mem 50m, cpu 20%, timeout 10
+                -> more robust
+            cp/restart everyday polkit-override.conf -> etc/.../.
+                -> prevent mem leak in policykit, ram usage increase
+        network
+            run rm -rf plugins/bearer from qt network
+            iptable rules.v4/block incoming traffic on wwan0
+            cp modemmanager.service in debug mode, run systemctl ena
+            cp tmobile-network serviceproviders.xml
+            cp camera fw binary/.elf host->img
+                not provided in debian pkg
+            run custom dns hostname nsswitch.conf
+        rm
+            arm-none-eabi for cortex-m4/m7
+                rm find arm/, !thumb/v7
+                rm find cpp server, !gcc objcopy objdump
+                -> rm unused arch, smaller img, bare-metal c/no cpp
+            run ldconfig/dynamic linker cache config/link for shared libs
+                mkdir /tmp, cp run setup.sh
+                rm -rf /tmp
+            cp apt.conf, version file
+            rm -rf icons, lists, cache, apt clean
+### load_kernel.sh
+        cd dir device
+        scp/secure copy protocol boot.img -> device
+        ssh
+        sudo dd/disk dump reboot
+### flash_kernel.sh
+        tools/edl/emergency download mode
+        w active_slot <- boot.img
+            device recovery, bootloader upd
+    flash_system.sh
+    flash_all.sh
+        w part_a/b <- img
+        ./flash_kernel.sh flash_sys.sh
+### weston gui
+        test
+            -o short-monotonic/time elapsed since boot
+                -u weston display server logs
+            socket path wayland-0, subprocess is_active
+            weston.service file haslib
+            subprocess open cmd/cd setup ui
+                poll 10
+            rc/return code
+                kill proc
+                out err
+                sync()
+                log
+            else sudo reboot
+        benchmark
+            run/subproc call() wait timeout
+            run systemctl stop weston, rm -rf
+            time, cnt
+            timestamp cmd/proc.open polll() setup ui
+### sdm845 
+        default config
+            syscall, pid, module, arch, core dump, cpu, can driver
+            spi, phy, debug, crypto, inv, mpu
+        makefile/drivers
+            +=esoc/external sys-on-chip
+                if ena, compile incl. esoc dir
+            powercap, fan, virt, hv, cpu, bluetooth, usb,audio, port 
+            -y/always += tty/ gpu, soc, video, pwm, phy, ubs, irqchip
+        module export func symbol for gpl-licensed kernel
+            other modules, restrict to gpl
+        drivers/fpga
+            framework/mgr/manager config
+                fw mgr ptr load -> req img
+                    buf mgr ptr load -> dev w img to fpga -> config
+                state/flags: power on/off, fw req, w init, err, complete, op
+                dev->node match == data
+                get dev node -> ref to mgr
+                put mutext_unlock, put_device
+                reg 
+                    kazlloc()/alloc mem for struct, zeros, kernel flag
+                    id alloc
+                    mutex_init, sync ref cnt, prevent multiple threads
+                    mgr->mops/ptr to ops w r cb, private, state
+                    &mfgr->dev device init cls, parent, node, id
+                    set drvdata, name
+                        unreg get drvdata, rm
+                cls init create group, release
+                exit/destroy cls/ida interactive disassembler
+                    module exit
+            makefile
+            obj-$() += drivers/socfpga.o
+                link driver to kernel/loadable module
+        drivers/watchdog/alim1535_wdt.c
+            timer driver pmu/power management unit
+            ...
+            open/start/activate only once
+                test, set_bit 
+                |= (1<<25) timeout bits
+            pci device id
+            init
+                find a watchdog/dev
+                    ck series bridge, pmu
+                    pci r config/init timer bits
+                    reset
+                        &= ~0x3F clears bits 0-5/timer
+                        bits 24-27/issued ev
+                        9-16, 12-13/no monitor bits
+                    w config
+                set timer timeout
+                    t<60 |(1<<6) bit 6
+                    <60min 1<<7
+                reboot notifier for sys down
+                misc/minor name fops register
+                    write 
+                        data addr, len, ptr pos offset
+                        magic 'V' seq, reload, release, start
+                    unlock/ioctl 
+                        irq ack monitor extention 
+                        cmd switch: cp_to get put user, alive
+                watchdog exit/stop/clear/release
+                    spin_lock
+                    pci read config
+                    mask disable &= ~0x3F 
+                    &= ~(1<<25) timeout bits
+        drivers/thermal/cpu_cooling.c
+            state: get set max min/floor/limit cur power
+                if state == max/last, isolate
+                    unisolate
+                upd freq
+                clip/constraint > policy->max/user, if <, readjust policy->max
+            cooling dev ptr-> tree node
+                power extention/model opps/operation perf point lib
+                    1ghz 0.9v 2ghz 1.1v
+                    pwr -> freq
+                np/node, clip/constraints/mask weight/num_cpus
+                    capacitance/coefficient, static
+                dyn = pwr - static
+                    (raw_pwr*freq_dev->last_load)/100
+                    load/delta time 
+                    freq_dev dyn pwr_tb/kcalloc n ele, size bytes
+                        max_level
+                hp/hotplug ena/disable cpus runtime
+                    upd/callback state lock, entry list cpu, unlock
+                    online offline
+                pw/pwr management
+                    sleep, restore, suspend, post, resume
+                    notify
+            freq unreg
+                dev ptr
+                mutex_lock(&freq)
+                unreg notifier for last dev
+                mutex_lock(&list), del list, unlock
+                thermal_unreg(cool_dev), release_idr/id allocator
+                kfree(dev->tb/ts)
+    scripts/download-from-manifest.py
+        hash, lzma decompress, download json
+### build.yaml
+        artifacts output/ota
+        pr no. cp version -> ota
+        pkg_ota.py, push env
+            files
+                checksum sha hash, on device cksum/upd
+                    header/unpack
+                    magic, version, sz
+                    chunk type 0xCAC1/hex raw in file format
+                    0xCAC2/fill sz//4,upd()
+                compress
+                ret name, url, hash, raw, size, sparse, ck
+                    shutil.copy(path, .img)
+                    entry sectors
+                gpts(6)
+                partitions/persist, sys, xbl, dev, boot, user
+            configs json url, staging, partitions
+            deepcopy()/nested objs
+            -> json.dump(f[alt][url])
+        statistics analyze-rootfs.sh
+            docker buld mount container_id, trap rm exit
+            mount img -> dir
+            du/disk usage -sh summary human-readable
+            sed/stream editor, replace w/ '/'
+            sz/rootfs total, local/py env, lib 
+            umount img
+        build_sys.sh
+        cat version git pull.head.sha
+        build_kernel.sh
+        ccache hendrikmuhs, key 
+        awk/text processing sdm845/submodule ref
+        commit msg
+### tesing.md checklist
+        release
+            test_onroad.py
+                setup cls
+                    debug
+                    env replay, testing
+                    shutil.rmtree/recur del log 
+                        cleanup testruns
+                    sys/mgr
+                    time, proc
+                    sub upd
+                    route, len(seg) == 1
+                    kill proc
+                    path file log_size
+                    msgs defaultdict(list)
+                service freq
+                    skip gps service
+                    len(msg) >= floor(freq*t*0.8)
+                        enough msgs subset 80%
+                mgr start time
+                    st - mgr_st < 15
+                cloudlog size
+                    msg sz < 3.5e5
+                    3 most common, n/sum(cnt) > 30% == 0
+                        zero log spam
+                log size
+                    min/log_sz/60*t*0.5 < size < *1.5
+                ui timing
+                    max(ts) < 250
+                    mean < 20
+                    camera preempt ui
+                        len < 5
+                cpu usage
+                    log plot by proc
+                    cpu_time[-1] - [0] usage < max
+                    all/any(proc.key())
+                    sum < total
+                mem 
+                    utility usage subporcess.decode()
+                    avg(mems) <= 80
+                    max(np.diff(mems)) <=4, avg <= 1
+                camera frame timing
+                    max(ts_diff, 50ms) < 5
+                camera sync
+                    eof > sof
+                    len(frameId) == 1
+                    next(id) < 100
+                    max - min < 10
+                    ts diff < 2
+                camera encoder match
+                    road camera state, enc idx
+                    frames id, timestamp
+                        enc_sof == cam_sof
+                        enc_eof == cam_eof
+                mpc/model predictive control, over time
+                    cfgs longitudinalplan max 0.05
+                model exec timing
+                    cfgs avg freq 20hz
+                    ts msgs[s] min max mean
+                    max < instant_max
+                    mean < avg_max
+                service timing
+                    header/service, max, min, mean 0.06
+                        rsd/relative std deviation /mean, data consistency
+                    ts np.mean(ts), max(ts)/nano 1e9/time diff between msgs
+                    dt/expected time interval 1/list.freq
+                        rtol/rel tolerance 0.03, atol 0
+                    std(ts)/dt > rsd
+                    tabulate(row, header)
+                    passed if no err
+                startup/release_only alert text
+                engagable
+                    roadev -> no. of entries/Counter()/dict cnt hashable objs
+                    true/false offset/slice msg list from offset onward
+            wifi, modem-cell, image size, sound
+            scons -c/clean build, factory reset/boot
+            color calib/tizi mici
+            agnos upd
+            ui.py/display
+                main_layout.render()
+                content, sidebar, rect, click, settings, mode, upd
+                setup_callbacks, transistion
+        abl/uefi bootloader
+            a/b slot/boot from backup if primary fails
+            boot/load kernel time <1s
+        xbl extensible bootloader
+            primary bootloader
+            temp cold/hot
+            60fps display
+            boot time <2.4s
+        setup
+            real/correct url, valid installer_url, boot
+    
+
 
 ## simulator
     setup
