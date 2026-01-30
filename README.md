@@ -12,10 +12,10 @@
     - [x] FPGA
     - [x] verilog/gtkwave/verilator
     - [x] web
-    - [ ] design pattern
-    - [ ] toy robot
+    - [x] desk motor controller 
+    - [ ] thermal controller
     - [ ] wiping robot
-    - [ ] motor controller
+    - [ ] car motor controller
 
 ## lan
     - [x] c

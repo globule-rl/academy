@@ -1,0 +1,29 @@
+name: PlatformIO CI
+
+  on: [push]
+
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          test: [/src/*.*, /test/*.*]
+
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/cache@v4
+          with:
+            path: |
+              ~/.cache/pip
+              ~/.platformio/.cache
+            key: ${{ runner.os }}-pio
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.11'
+        - name: Install PlatformIO Core
+          run: pip install --upgrade platformio
+
+        - name: Build PlatformIO tests
+          run: pio ci --board=<ID_1> --board=<ID_2> --board=<ID_N>
+          env:
+            PLATFORMIO_CI_SRC: ${{ matrix.test }}
