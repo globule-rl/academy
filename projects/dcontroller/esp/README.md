@@ -37,11 +37,47 @@
         600ma 30awg 0.8mm all colors to sensor
         length: 120-10-10=100-transformer/20=80cm
             3 rj45b plug+jack 0.5*2 1m
-## platform io 
+## software
+### platform io 
     static ck
     unit test
     lib freertos task 
-        display lvgl touchscreen buf drv color btn stat ev         
+    lib display lvgl touchscreen
+        buf drv color btn stat event/ev         
+### motor pwm/speed state hall current
+    motor
+        state id
+            up down/-/low stop/0
+    rtos tasks cmdq mutex/share
+        xSemaphoreTake Give
+    init pin low_state
+    motor/accel control rpm+10
+        clamp min max
+    over current limit stop/safety
+    hall - prev_cnt, irq
+    cmd motor 0 1, reverse, testing
+    telemetry/logging
+    idle task
+### interface
+    btn digitalRead btn
+        prefs/eeprom store small vals, float, kv
+        upd display clear size cursor height mm display
+    web server 80
+        wifi attempts 20
+        html root style btn .motor .status cls
+            /control post json.stringigy, sendcmd/speed,id 
+                json doc -> cmd queue
+            /status getEleById(0/1) upd status
+                semaphore take/block other, doc read, give/release mutex
+                    serialize doc to json
+            send status 200/400/405
+
+## pin conn
+    5-pin/purple-green-black-brown-yellow
+        signal pwr speed
+    2-pin/end-of-travel/thermal/safety sw/red-black -> 5+2pin board
+    2-pin/red-white -> hall sensor/pulse?/overcurrent?
+    
 
 
 

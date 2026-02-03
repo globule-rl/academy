@@ -1,4 +1,4 @@
-// ================= PINS =================
+#pragma once
 
 // Motor driver pins
 #define M1_IN1 25
@@ -13,22 +13,6 @@
 // Hall sensors
 #define HALL_M1 34
 #define HALL_M2 35
-
-// Current sensors (ADC)
-#define CUR_M1 32
-#define CUR_M2 33
-
-// Buttons
-#define BTN_UP   4
-#define BTN_DOWN 16
-#define BTN_M1   17
-#define BTN_M2   5
-
-// I2C Display
-#define SDA_PIN 21
-#define SCL_PIN 22
-
-// ================= CONSTANTS =================
 
 // PWM
 #define PWM_FREQ 20000
@@ -46,6 +30,24 @@
 #define MIN_HEIGHT_MM 0
 
 // EEPROM / Preferences keys
-#define PREF_NAMESPACE "desk"
+#define PREF_NAMESPACE "d"
 #define PREF_H1 "height1"
 #define PREF_H2 "height2"
+
+// Current sensors (ADC)
+#define CUR_M1 32
+#define CUR_M2 33
+
+// Buttons
+#define BTN_UP   4
+#define BTN_DOWN 16
+#define BTN_M1   17
+#define BTN_M2   5
+#define DEBOUNCE_DELAY 50     // ms
+
+// I2C Display
+#define SDA_PIN 21
+#define SCL_PIN 22
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
