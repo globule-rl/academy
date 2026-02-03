@@ -1,110 +1,180 @@
-#include <ostream>
-#include <motor/pin.h>
-#include <motor/motor.h>
-#include <motor/display.h>
+#include "motor/pin.h"
+#include "motor/motor.h"
+#include "motor/display.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include <string.h>
 
-void init_pwm() {
-    // Configure PWM channels
-    ledc_timer_config(0, PWM_FREQ, PWM_RESOLUTION);  // Motor 1
-    ledc_timer_config(1, PWM_FREQ, PWM_RESOLUTION);  // Motor 2
+static const char *TAG = "main";
+
+// ============================================================================
+// MAIN APPLICATION
+// ============================================================================
+
+extern "C" void app_main(void)
+{
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "ESP32 Dual Motor Desk Controller");
+    ESP_LOGI(TAG, "========================================");
     
-    ledcAttachPin(MOTOR1_PWM_PIN, 0);
-    ledcAttachPin(MOTOR2_PWM_PIN, 1);
-}
-
-void init_motors() {
-    // Direction pins
-    pinMode(MOTOR1_DIR_PIN, OUTPUT);
-    pinMode(MOTOR2_DIR_PIN, OUTPUT);
+    // Initialize NVS first (needed for storage and WiFi)
+    storage_init();
     
-    gpio_set_level(MOTOR1_DIR_PIN, LOW);
-    gpio_set_level(MOTOR2_DIR_PIN, LOW);
-}
-
-void init_hall_sensors() {
-    pinMode(MOTOR1_HALL_A, INPUT_PULLUP);
-    pinMode(MOTOR1_HALL_B, INPUT_PULLUP);
-    pinMode(MOTOR2_HALL_A, INPUT_PULLUP);
-    pinMode(MOTOR2_HALL_B, INPUT_PULLUP);
+    // Initialize all hardware
+    ESP_LOGI(TAG, "Initializing hardware...");
+    motor_init();
+    sensors_init();
+    buttons_init();
+    i2c_init();
+    display_init();
     
-    // Attach interrupts on HALL_A pins
-    gpio_isr_handler_add(digitalPinToInterrupt(MOTOR1_HALL_A), motor1_hall_isr, RISING);
-    gpio_isr_handler_add(digitalPinToInterrupt(MOTOR2_HALL_A), motor2_hall_isr, RISING);
-}
-
-void init_current_sensors() {
-    pinMode(CURRENT_SENSOR1_PIN, INPUT);
-    pinMode(CURRENT_SENSOR2_PIN, INPUT);
+    // Create FreeRTOS synchronization primitives
+    motor_command_queue = xQueueCreate(10, sizeof(motor_command_t));
+    if (motor_command_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create motor command queue");
+        return;
+    }
     
-    analogSetAttenuation(ADC_11db);  // Full ADC range
-    adc_oneshot_readResolution(12);  // 12-bit resolution
-}
-
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
-
-  Serial.println("\n=== ESP32 CONTROLLER ===\n");
-  
-  // Initialize hardware
-  init_pwm();
-  init_motors();
-  init_hall_sensors();
-  init_current_sensors();
-  
-  // Create synchronization primitives
-  motorCommandQueue = xQueueCreate(10, sizeof(MotorCommand));
-  motorStateMutex = xSemaphoreCreateMutex();
-  
-
-  pinMode(BTN_UP, INPUT_PULLUP);
-  pinMode(BTN_DOWN, INPUT_PULLUP);
-  pinMode(BTN_M1, INPUT_PULLUP);
-  pinMode(BTN_M2, INPUT_PULLUP);
-
-  ledc_timer_config(PWM_CH_M1, PWM_FREQ, PWM_RES);
-  ledc_timer_config(PWM_CH_M2, PWM_FREQ, PWM_RES);
-  ledcAttachPin(M1_IN1, PWM_CH_M1);
-  ledcAttachPin(M2_IN1, PWM_CH_M2);
-
-  gpio_isr_handler_add(HALL_M1, hallM1ISR, RISING);
-  gpio_isr_handler_add(HALL_M2, hallM2ISR, RISING);
-
-  prefs.begin(PREF_NAMESPACE, false);
-
-  Wire.begin(SDA_PIN, SCL_PIN);
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.clearDisplay();
-}
-
-
-void app_main(void)
-{ 
-    xTaskCreatePinnedToCore(
-    task_motor_control,   // Function to call
-    "Motor",              // Task name
-    2048,                // Stack size (bytes)
-    NULL,                // Parameters
-    3,                   // Priority
-    NULL,                // Task handle
-    0                    // Core (0 or 1)
-  );
- xTaskCreatePinnedToCore(
-    task_current_monitor, "CurrentMon", 2048, NULL, 3, NULL, 0);
- xTaskCreatePinnedToCore(
-    task_hall_monitor, "HallMon", 2048, NULL, 2, NULL, 1);
- xTaskCreatePinnedToCore(
-    task_command_handler, "CmdHandler", 2048, NULL, 2, NULL, 1);
- xTaskCreatePinnedToCore(
-    task_telemetry, "Telemetry", 2048, NULL, 1, NULL, 1);
-
-  xTaskCreatePinnedToCore(
-    task_display, "Diplay", 2048, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(
-    task_webserver, "WebServer", 2048, NULL, 1, NULL, 1);
-}
-
-void loop() {
-  updateDisplay();
-      vTaskDelay(pdMS_TO_TICKS(10000));  // Idle task
+    motor_state_mutex = xSemaphoreCreateMutex();
+    if (motor_state_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create motor state mutex");
+        return;
+    }
+    
+    desk_state_mutex = xSemaphoreCreateMutex();
+    if (desk_state_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create desk state mutex");
+        return;
+    }
+    
+    ESP_LOGI(TAG, "FreeRTOS primitives created");
+    
+    // Create all tasks
+    ESP_LOGI(TAG, "Creating FreeRTOS tasks...");
+    
+    // Motor control task - high priority, Core 0
+    BaseType_t ret = xTaskCreatePinnedToCore(
+        task_motor_control,
+        "MotorCtrl",
+        TASK_MOTOR_CTRL_STACK,
+        NULL,
+        TASK_MOTOR_CTRL_PRIO,
+        NULL,
+        CORE_0
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create motor control task");
+    }
+    
+    // Current monitoring task - high priority, Core 0
+    ret = xTaskCreatePinnedToCore(
+        task_current_monitor,
+        "CurrentMon",
+        TASK_CURRENT_MON_STACK,
+        NULL,
+        TASK_CURRENT_MON_PRIO,
+        NULL,
+        CORE_0
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create current monitor task");
+    }
+    
+    // Hall sensor monitoring task - Core 1
+    ret = xTaskCreatePinnedToCore(
+        task_hall_monitor,
+        "HallMon",
+        TASK_HALL_MON_STACK,
+        NULL,
+        TASK_HALL_MON_PRIO,
+        NULL,
+        CORE_1
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create hall monitor task");
+    }
+    
+    // Command handler task - Core 1
+    ret = xTaskCreatePinnedToCore(
+        task_command_handler,
+        "CmdHandler",
+        TASK_CMD_HANDLER_STACK,
+        NULL,
+        TASK_CMD_HANDLER_PRIO,
+        NULL,
+        CORE_1
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create command handler task");
+    }
+    
+    // Telemetry task - Core 1
+    ret = xTaskCreatePinnedToCore(
+        task_telemetry,
+        "Telemetry",
+        TASK_TELEMETRY_STACK,
+        NULL,
+        TASK_TELEMETRY_PRIO,
+        NULL,
+        CORE_1
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create telemetry task");
+    }
+    
+    // Display update task - Core 1
+    ret = xTaskCreatePinnedToCore(
+        task_display,
+        "Display",
+        TASK_DISPLAY_STACK,
+        NULL,
+        TASK_DISPLAY_PRIO,
+        NULL,
+        CORE_1
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create display task");
+    }
+    
+    // Button polling task - Core 0
+    ret = xTaskCreatePinnedToCore(
+        task_buttons,
+        "Buttons",
+        TASK_BUTTON_STACK,
+        NULL,
+        TASK_BUTTON_PRIO,
+        NULL,
+        CORE_0
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create button task");
+    }
+    
+    // Web server task - Core 1
+    ret = xTaskCreatePinnedToCore(
+        task_webserver,
+        "WebServer",
+        TASK_WEBSERVER_STACK,
+        NULL,
+        TASK_WEBSERVER_PRIO,
+        NULL,
+        CORE_1
+    );
+    if (ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create web server task");
+    }
+    
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "All tasks created successfully!");
+    ESP_LOGI(TAG, "System ready.");
+    ESP_LOGI(TAG, "========================================");
+    
+    // Main loop - just delay forever (tasks do all the work)
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10000));  // 10 second delay
+        
+        // Optional: Check system health here
+        ESP_LOGD(TAG, "Main task heartbeat - System OK");
+    }
 }

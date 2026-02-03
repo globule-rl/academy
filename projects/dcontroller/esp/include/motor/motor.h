@@ -1,76 +1,266 @@
 #pragma once
 
-#include <freertos/queue.h>
-#include <freertos/semphr.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <freertos/idf_additions.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
+#include "esp_adc_cal.h"
+#include "motor/pin.h"
 
-volatile long hallCountM1 = 0;
-volatile long hallCountM2 = 0;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// Height
-float heightMM = 0;
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
 
-// Timing
-unsigned long lastHallTime = 0;
+typedef enum {
+    MOTION_STOPPED = 0,
+    MOTION_MOVING_UP,
+    MOTION_MOVING_DOWN
+} motion_state_t;
 
-// Motion state
-enum Motion { STOPPED, MOVING_UP, MOVING_DOWN };
-Motion motion = STOPPED;
+typedef enum {
+    MOTOR_ID_1 = 0,
+    MOTOR_ID_2 = 1,
+    MOTOR_COUNT = 2
+} motor_id_t;
 
-// Motor IDs
-#define MOTOR_UP 0
-#define MOTOR_DOWN 1
+typedef struct {
+    int16_t speed;          // -255 to 255
+    motor_id_t motor_id;
+} motor_command_t;
 
-// Command structure
-struct MotorCommand {
-    int speed;      // -255 to 255
-    uint8_t motor_id;
-};
+typedef struct {
+    int16_t current_speed;      // Actual current speed
+    int16_t target_speed;       // Target speed
+    float current_ma;           // Current in mA
+    int32_t hall_count;         // Hall sensor pulse count
+    bool over_current;          // Over-current flag
+    bool thermal_shutdown;      // Thermal shutdown flag (from red wire)
+    bool limit_triggered;       // Limit switch triggered
+    bool red_wire_alarm;        // Red wire sensor triggered
+    bool yellow_wire_alarm;     // Yellow wire sensor triggered
+    float motor_end_temp;       // Calculated temperature from red-yellow wire pair
+} motor_state_t;
 
-// State structure
-struct MotorState {
-    int current_speed;
-    int target_speed;
-    float current_ma;
-    int hall_count;
-    bool over_current;
-};
+typedef struct {
+    float height_mm;        // Current desk height
+    float target_height_mm; // Target height for preset moves
+    float mem1_height;      // Memory position 1
+    float mem2_height;      // Memory position 2
+    bool calibrated;        // Height calibration status
+} desk_state_t;
 
-// External declarations
-extern QueueHandle_t motorCommandQueue;
-extern SemaphoreHandle_t motorStateMutex;
-MotorState motor_states[2] = {
-    {0, 0, 0, 0, false},
-    {0, 0, 0, 0, false}
-};
+// ============================================================================
+// EXTERNAL VARIABLES
+// ============================================================================
 
-volatile int hall_counters[2] = {0, 0};
+// Hall sensor pulse counters (ISR-safe)
+extern volatile int32_t hall_counters[MOTOR_COUNT];
+extern volatile uint32_t last_hall_time_ms[MOTOR_COUNT];
 
-// Function declarations
-void set_motor_speed(uint8_t motor_id, int speed);
-float read_current(uint8_t motor_id);
-void check_over_current();
-void get_motor_state(uint8_t motor_id, MotorState* state);
+// System state
+extern desk_state_t desk_state;
+extern motion_state_t motion_state;
 
-// Inline helper for safe state reading
-inline void get_motor_state(uint8_t motor_id, MotorState* state) {
-    if (motor_id > 1 || !state) return;
-    xSemaphoreTake(motorStateMutex, portMAX_DELAY);
-    *state = motor_states[motor_id];
-    xSemaphoreGive(motorStateMutex);
+// Motor states (protected by mutex)
+extern motor_state_t motor_states[MOTOR_COUNT];
+
+// FreeRTOS primitives
+extern QueueHandle_t motor_command_queue;
+extern SemaphoreHandle_t motor_state_mutex;
+extern SemaphoreHandle_t desk_state_mutex;
+
+// ADC calibration handle
+extern esp_adc_cal_characteristics_t adc_cal_chars;
+
+// Legacy variables (for compatibility during transition)
+extern volatile long hallCountM1;
+extern volatile long hallCountM2;
+extern float heightMM;
+extern unsigned long lastHallTime;
+
+// ============================================================================
+// FUNCTION DECLARATIONS - MOTOR CONTROL
+// ============================================================================
+
+/**
+ * @brief Initialize motor hardware (GPIO, PWM)
+ */
+void motor_init(void);
+
+/**
+ * @brief Set motor speed and direction
+ * @param motor_id Motor ID (0 or 1)
+ * @param speed Speed -255 to 255 (negative = reverse)
+ */
+void set_motor_speed(motor_id_t motor_id, int16_t speed);
+
+/**
+ * @brief Stop both motors immediately
+ */
+void stop_motors(void);
+
+/**
+ * @brief Move desk up
+ */
+void move_up(void);
+
+/**
+ * @brief Move desk down
+ */
+void move_down(void);
+
+/**
+ * @brief Move to specific height (blocking with timeout)
+ * @param target_height_mm Target height in millimeters
+ * @param timeout_ms Timeout in milliseconds
+ * @return true if reached target, false if timeout or error
+ */
+bool move_to_height(float target_height_mm, uint32_t timeout_ms);
+
+// ============================================================================
+// FUNCTION DECLARATIONS - SENSORS
+// ============================================================================
+
+/**
+ * @brief Initialize all sensors (Hall, current, thermal, limit switches)
+ */
+void sensors_init(void);
+
+/**
+ * @brief Read motor current
+ * @param motor_id Motor ID
+ * @return Current in milliamps
+ */
+float read_current(motor_id_t motor_id);
+
+/**
+ * @brief Read motor end red-yellow wire sensors
+ * @param motor_id Motor ID
+ * @param red_wire Pointer to store red wire status (true = alarm)
+ * @param yellow_wire Pointer to store yellow wire status (true = alarm)
+ * @return Calculated temperature in Celsius, or -1 if no alarm
+ */
+float read_motor_end_sensors(motor_id_t motor_id, bool* red_wire, bool* yellow_wire);
+
+/**
+ * @brief Check if limit switch is triggered
+ * @param motor_id Motor ID
+ * @param top true for top limit, false for bottom limit
+ * @return true if limit switch is triggered
+ */
+bool check_limit_switch(motor_id_t motor_id, bool top);
+
+/**
+ * @brief Check all safety conditions and stop motors if needed
+ */
+void safety_check(void);
+
+/**
+ * @brief Update desk height from hall sensor counts
+ */
+void update_height(void);
+
+/**
+ * @brief Get current desk height
+ * @return Height in millimeters
+ */
+float get_current_height(void);
+
+/**
+ * @brief Calibrate height at current position
+ * @param known_height_mm Known height in millimeters
+ */
+void calibrate_height(float known_height_mm);
+
+// ============================================================================
+// FUNCTION DECLARATIONS - SYNCHRONIZATION
+// ============================================================================
+
+/**
+ * @brief Synchronize both motors to prevent racking
+ * @param base_speed Base speed for both motors
+ */
+void sync_motors(int16_t base_speed);
+
+/**
+ * @brief Get motor state (thread-safe)
+ * @param motor_id Motor ID
+ * @param state Pointer to state structure to fill
+ */
+void get_motor_state(motor_id_t motor_id, motor_state_t* state);
+
+/**
+ * @brief Get desk state (thread-safe)
+ * @param state Pointer to desk state structure to fill
+ */
+void get_desk_state(desk_state_t* state);
+
+// ============================================================================
+// FUNCTION DECLARATIONS - FREERTOS TASKS
+// ============================================================================
+
+/**
+ * @brief Motor control task - handles command queue and speed ramping
+ */
+void task_motor_control(void *param);
+
+/**
+ * @brief Current monitoring task - checks for over-current conditions
+ */
+void task_current_monitor(void *param);
+
+/**
+ * @brief Hall sensor monitoring task - calculates RPM and updates position
+ */
+void task_hall_monitor(void *param);
+
+/**
+ * @brief Command handler task - processes high-level commands
+ */
+void task_command_handler(void *param);
+
+/**
+ * @brief Telemetry task - logs motor status via serial
+ */
+void task_telemetry(void *param);
+
+// ============================================================================
+// FUNCTION DECLARATIONS - ISR HANDLERS
+// ============================================================================
+
+/**
+ * @brief Hall sensor ISR for Motor 1
+ */
+void IRAM_ATTR motor1_hall_isr(void* arg);
+
+/**
+ * @brief Hall sensor ISR for Motor 2
+ */
+void IRAM_ATTR motor2_hall_isr(void* arg);
+
+/**
+ * @brief Limit switch ISR for emergency stop
+ */
+void IRAM_ATTR limit_switch_isr(void* arg);
+
+/**
+ * @brief Thermal sensor ISR for emergency stop
+ */
+void IRAM_ATTR thermal_isr(void* arg);
+
+// ============================================================================
+// HELPER MACROS
+// ============================================================================
+
+#define CLAMP(val, min, max) ((val) < (min) ? (min) : ((val) > (max) ? (max) : (val)))
+#define ABS(val) ((val) < 0 ? -(val) : (val))
+
+#ifdef __cplusplus
 }
-
-xTaskCreatePinnedToCore(
-    task_motor_control, "Motor", 2048, NULL, 3, NULL, 0);
-xTaskCreatePinnedToCore(
-    task_current_monitor, "CurrentMon", 2048, NULL, 3, NULL, 0);
-xTaskCreatePinnedToCore(
-    task_hall_monitor, "HallMon", 2048, NULL, 2, NULL, 1);
-xTaskCreatePinnedToCore(
-    task_command_handler, "CmdHandler", 2048, NULL, 2, NULL, 1);
-xTaskCreatePinnedToCore(
-    task_telemetry, "Telemetry", 2048, NULL, 1, NULL, 1);
-
-
+#endif

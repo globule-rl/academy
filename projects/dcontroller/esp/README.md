@@ -49,17 +49,22 @@
         state id
             up down/-/low stop/0
     rtos tasks cmdq mutex/share
-        xSemaphoreTake Give
+        xSemaphoreTake/block other, safe read, Give//release mutex
     init pin low_state
     motor/accel control rpm+10
         clamp min max
-    over current limit stop/safety
     hall - prev_cnt, irq
-    cmd motor 0 1, reverse, testing
+        3 wires/6 states, 000 111 invalid/fault protection
+        noise/debounce
+        sync motor
+        speed rpm/angle/pos
+        over current limit stop/safety
+    cmd motor 0/1, reverse, testing
     telemetry/logging
-    idle task
+        idle task
 ### interface
-    btn digitalRead btn
+    btn digitalRead
+        debounce
         prefs/eeprom store small vals, float, kv
         upd display clear size cursor height mm display
     web server 80
@@ -68,13 +73,17 @@
             /control post json.stringigy, sendcmd/speed,id 
                 json doc -> cmd queue
             /status getEleById(0/1) upd status
-                semaphore take/block other, doc read, give/release mutex
+                semaphore take, doc read, give
                     serialize doc to json
             send status 200/400/405
+### unit test
+    #TODO
 
 ## pin conn
     5-pin/purple-green-black-brown-yellow
-        signal pwr speed
+        signal/3
+        pwr black-brown
+        #TODO multimeter verify
     2-pin/end-of-travel/thermal/safety sw/red-black -> 5+2pin board
     2-pin/red-white -> hall sensor/pulse?/overcurrent?
     
