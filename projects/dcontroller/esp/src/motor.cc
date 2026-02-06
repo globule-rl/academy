@@ -3,7 +3,9 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-#include "driver/adc.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 #include "esp_timer.h"
 #include <string.h>
 
@@ -13,18 +15,11 @@ static const char *TAG = "motor";
 // GLOBAL VARIABLES
 // ============================================================================
 
-// Hall sensor pulse counters (ISR-safe)
-volatile int32_t hall_counters[MOTOR_COUNT] = {0, 0};
-volatile uint32_t last_hall_time_ms[MOTOR_COUNT] = {0, 0};
-
-// Legacy variables (for compatibility)
-volatile long hallCountM1 = 0;
-volatile long hallCountM2 = 0;
 float heightMM = 0;
 unsigned long lastHallTime = 0;
 
 // System state
-desk_state_t desk_state = {
+d_state_t d_state = {
     .height_mm = 0.0f,
     .target_height_mm = 0.0f,
     .mem1_height = -1.0f,
@@ -43,28 +38,35 @@ motor_state_t motor_states[MOTOR_COUNT] = {
 // FreeRTOS primitives
 QueueHandle_t motor_command_queue = NULL;
 SemaphoreHandle_t motor_state_mutex = NULL;
-SemaphoreHandle_t desk_state_mutex = NULL;
+SemaphoreHandle_t d_state_mutex = NULL;
 
 // ADC calibration
-esp_adc_cal_characteristics_t adc_cal_chars;
+adc_oneshot_unit_handle_t adc_handle = NULL;
+adc_cali_handle_t adc_cal_handle = NULL;
 
 // ============================================================================
 // ISR HANDLERS
 // ============================================================================
+// Hall sensor pulse counters (ISR-safe)
+// Legacy variables (for compatibility during transition)
+_Atomic(int32_t) hall_counters[MOTOR_COUNT] = {0, 0};
+_Atomic(uint32_t) last_hall_time_ms[MOTOR_COUNT] = {0, 0};
+_Atomic(long) hallCountM1 = 0;
+_Atomic(long) hallCountM2 = 0;
 
-void IRAM_ATTR motor1_hall_isr(void* arg) {
-    hall_counters[MOTOR_ID_1]++;
-    hallCountM1 = hall_counters[MOTOR_ID_1];
-    last_hall_time_ms[MOTOR_ID_1] = xTaskGetTickCount() * portTICK_PERIOD_MS;
+void motor1_hall_isr(void* arg) {
+    atomic_fetch_add(&hall_counters[MOTOR_ID_1], 1);
+    hallCountM1 = atomic_load(&hall_counters[MOTOR_ID_1]);
+    atomic_store(&last_hall_time_ms[MOTOR_ID_1], xTaskGetTickCount() * portTICK_PERIOD_MS);
 }
 
-void IRAM_ATTR motor2_hall_isr(void* arg) {
-    hall_counters[MOTOR_ID_2]++;
-    hallCountM2 = hall_counters[MOTOR_ID_2];
-    last_hall_time_ms[MOTOR_ID_2] = xTaskGetTickCount() * portTICK_PERIOD_MS;
+void  motor2_hall_isr(void* arg) {
+    atomic_fetch_add(&hall_counters[MOTOR_ID_2], 1);
+    hallCountM2 = atomic_load(&hall_counters[MOTOR_ID_2]);
+    atomic_store(&last_hall_time_ms[MOTOR_ID_2], xTaskGetTickCount() * portTICK_PERIOD_MS);
 }
 
-void IRAM_ATTR limit_switch_isr(void* arg) {
+void limit_switch_isr(void* arg) {
     // Emergency stop on limit switch trigger
     gpio_num_t gpio = (gpio_num_t)(intptr_t)arg;
     
@@ -132,10 +134,11 @@ void motor_init(void) {
     // Configure PWM timer
     ledc_timer_config_t pwm_timer = {
         .speed_mode = PWM_MODE,
-        .timer_num = PWM_TIMER,
         .duty_resolution = PWM_RES,
+        .timer_num = PWM_TIMER,
         .freq_hz = PWM_FREQ,
-        .clk_cfg = LEDC_AUTO_CLK
+        .clk_cfg = LEDC_AUTO_CLK,
+        .deconfigure = false
     };
     ESP_ERROR_CHECK(ledc_timer_config(&pwm_timer));
     
@@ -144,9 +147,12 @@ void motor_init(void) {
         .gpio_num = M1_IN1,
         .speed_mode = PWM_MODE,
         .channel = M1_PWM_CH,
+        .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = PWM_TIMER,
         .duty = 0,
-        .hpoint = 0
+        .hpoint = 0,
+        .sleep_mode = LEDC_SLEEP_MODE_NO_ALIVE_NO_PD,
+        .flags = {}
     };
     ESP_ERROR_CHECK(ledc_channel_config(&m1_pwm));
     
@@ -155,9 +161,12 @@ void motor_init(void) {
         .gpio_num = M2_IN1,
         .speed_mode = PWM_MODE,
         .channel = M2_PWM_CH,
+        .intr_type = LEDC_INTR_DISABLE,
         .timer_sel = PWM_TIMER,
         .duty = 0,
-        .hpoint = 0
+        .hpoint = 0,
+        .sleep_mode = LEDC_SLEEP_MODE_NO_ALIVE_NO_PD,
+        .flags = {}
     };
     ESP_ERROR_CHECK(ledc_channel_config(&m2_pwm));
     
@@ -244,12 +253,29 @@ void sensors_init(void) {
     ESP_ERROR_CHECK(gpio_isr_handler_add(M2_YELLOW_PIN, yellow_wire_isr, (void*)M2_YELLOW_PIN));
     
     // Initialize ADC
-    adc1_config_width(ADC_WIDTH);
-    adc1_config_channel_atten(CUR_M1, ADC_ATTEN);
-    adc1_config_channel_atten(CUR_M2, ADC_ATTEN);
+    adc_oneshot_unit_init_cfg_t init_config1 = {
+        .unit_id = ADC_UNIT_1,
+        .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
+        .ulp_mode = ADC_ULP_MODE_DISABLE
+    };
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc_handle));
     
-    // Characterize ADC
-    esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN, ADC_WIDTH, ADC_VREF, &adc_cal_chars);
+    // Configure ADC channels
+    adc_oneshot_chan_cfg_t config = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_12,
+    };
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, CUR_M1, &config));
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, CUR_M2, &config));
+    
+    // Initialize ADC calibration
+    adc_cali_line_fitting_config_t cali_config = {
+        .unit_id = ADC_UNIT_1,
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_12,
+        .default_vref = 1100
+    };
+    ESP_ERROR_CHECK(adc_cali_create_scheme_line_fitting(&cali_config, &adc_cal_handle));
     
     ESP_LOGI(TAG, "Sensors initialized");
 }
@@ -320,7 +346,7 @@ void move_down(void) {
 }
 
 bool move_to_height(float target_height_mm, uint32_t timeout_ms) {
-    if (!desk_state.calibrated) {
+    if (!d_state.calibrated) {
         ESP_LOGW(TAG, "Cannot move to height: not calibrated");
         return false;
     }
@@ -379,18 +405,21 @@ bool move_to_height(float target_height_mm, uint32_t timeout_ms) {
 // ============================================================================
 
 float read_current(motor_id_t motor_id) {
-    adc1_channel_t channel = (motor_id == MOTOR_ID_1) ? CUR_M1 : CUR_M2;
+    adc_channel_t channel = (motor_id == MOTOR_ID_1) ? CUR_M1 : CUR_M2;
     
     // Read multiple samples and average
-    uint32_t adc_sum = 0;
+    int adc_sum = 0;
     for (int i = 0; i < 10; i++) {
-        adc_sum += adc1_get_raw(channel);
+        int adc_raw;
+        ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, channel, &adc_raw));
+        adc_sum += adc_raw;
         esp_rom_delay_us(100);
     }
-    uint32_t adc_raw = adc_sum / 10;
+    int adc_raw_avg = adc_sum / 10;
     
     // Convert to voltage (mV)
-    uint32_t voltage_mv = esp_adc_cal_raw_to_voltage(adc_raw, &adc_cal_chars);
+    int voltage_mv;
+    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cal_handle, adc_raw_avg, &voltage_mv));
     
     // ACS712-30A: 2.5V offset, 66mV/A sensitivity
     float offset_mv = ACS712_OFFSET;
@@ -504,37 +533,37 @@ void update_height(void) {
     int32_t avg_pulses = (hall_counters[MOTOR_ID_1] + hall_counters[MOTOR_ID_2]) / 2;
     float new_height = avg_pulses / PULSES_PER_MM;
     
-    if (desk_state_mutex != NULL) {
-        xSemaphoreTake(desk_state_mutex, portMAX_DELAY);
+    if (d_state_mutex != NULL) {
+        xSemaphoreTake(d_state_mutex, portMAX_DELAY);
     }
     
-    desk_state.height_mm = new_height;
+    d_state.height_mm = new_height;
     
     // Enforce limits
-    if (desk_state.height_mm > MAX_HEIGHT_MM) {
-        desk_state.height_mm = MAX_HEIGHT_MM;
+    if (d_state.height_mm > MAX_HEIGHT_MM) {
+        d_state.height_mm = MAX_HEIGHT_MM;
         stop_motors();
         ESP_LOGW(TAG, "Maximum height reached");
     }
-    if (desk_state.height_mm < MIN_HEIGHT_MM) {
-        desk_state.height_mm = MIN_HEIGHT_MM;
+    if (d_state.height_mm < MIN_HEIGHT_MM) {
+        d_state.height_mm = MIN_HEIGHT_MM;
         stop_motors();
         ESP_LOGW(TAG, "Minimum height reached");
     }
     
     // Update legacy variables
-    heightMM = desk_state.height_mm;
+    heightMM = d_state.height_mm;
     lastHallTime = (last_hall_time_ms[MOTOR_ID_1] > last_hall_time_ms[MOTOR_ID_2]) ?
                    last_hall_time_ms[MOTOR_ID_1] : last_hall_time_ms[MOTOR_ID_2];
     
-    if (desk_state_mutex != NULL) {
-        xSemaphoreGive(desk_state_mutex);
+    if (d_state_mutex != NULL) {
+        xSemaphoreGive(d_state_mutex);
     }
 }
 
 float get_current_height(void) {
     update_height();
-    return desk_state.height_mm;
+    return d_state.height_mm;
 }
 
 void calibrate_height(float known_height_mm) {
@@ -543,7 +572,7 @@ void calibrate_height(float known_height_mm) {
     hall_counters[MOTOR_ID_2] = (int32_t)(known_height_mm * PULSES_PER_MM);
     
     update_height();
-    desk_state.calibrated = true;
+    d_state.calibrated = true;
     
     ESP_LOGI(TAG, "Calibrated at %.1f mm", known_height_mm);
 }
@@ -592,17 +621,17 @@ void get_motor_state(motor_id_t motor_id, motor_state_t* state) {
     }
 }
 
-void get_desk_state(desk_state_t* state) {
+void get_d_state(d_state_t* state) {
     if (state == NULL) return;
     
     update_height();
     
-    if (desk_state_mutex != NULL) {
-        xSemaphoreTake(desk_state_mutex, portMAX_DELAY);
+    if (d_state_mutex != NULL) {
+        xSemaphoreTake(d_state_mutex, portMAX_DELAY);
     }
-    memcpy(state, &desk_state, sizeof(desk_state_t));
-    if (desk_state_mutex != NULL) {
-        xSemaphoreGive(desk_state_mutex);
+    memcpy(state, &d_state, sizeof(d_state_t));
+    if (d_state_mutex != NULL) {
+        xSemaphoreGive(d_state_mutex);
     }
 }
 
@@ -681,30 +710,27 @@ void task_hall_monitor(void *param) {
     ESP_LOGI(TAG, "Hall monitor task started");
     
     const TickType_t xTicksToWait = pdMS_TO_TICKS(1000);  // 1 second
-    int32_t prev_counts[MOTOR_COUNT] = {0, 0};
+    int32_t prev_counts[MOTOR_COUNT] = {0};
     
     while (1) {
         vTaskDelay(xTicksToWait);
         
         for (int i = 0; i < MOTOR_COUNT; i++) {
-            int32_t delta = hall_counters[i] - prev_counts[i];
+            int32_t current = atomic_load(&hall_counters[i]);
+            int32_t delta = current - prev_counts[i];
             float rpm = (delta / 6.0f) * 60.0f;  // Assuming 6 Hall events per revolution
             
             if (motor_state_mutex != NULL) {
                 xSemaphoreTake(motor_state_mutex, portMAX_DELAY);
-            }
-            motor_states[i].hall_count = hall_counters[i];
-            if (motor_state_mutex != NULL) {
+                motor_states[i].hall_count = current;
                 xSemaphoreGive(motor_state_mutex);
             }
-            
+            prev_counts[i] = current;
             ESP_LOGD(TAG, "Motor %d: %ld edges/sec, ~%.1f RPM", i, delta, rpm);
         }
         
-        prev_counts[0] = hall_counters[0];
-        prev_counts[1] = hall_counters[1];
-        
-        // Update height
+        vTaskDelay(pdMS_TO_TICKS(100));
+
         update_height();
     }
 }

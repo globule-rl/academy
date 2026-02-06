@@ -3,9 +3,11 @@
 #include <stdio.h>
 
 mock_state_t mock_state;
+uint32_t last_hall_time_ms[2] = {0, 0};
 
 void mock_init(void) {
     memset(&mock_state, 0, sizeof(mock_state));
+    memset(last_hall_time_ms, 0, sizeof(last_hall_time_ms));
     // Set default GPIO levels to HIGH (1)
     for (int i = 0; i < 40; i++) {
         mock_state.gpio_levels[i] = 1;

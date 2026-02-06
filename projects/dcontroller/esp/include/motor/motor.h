@@ -2,69 +2,69 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
-#include "esp_adc_cal.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 #include "motor/pin.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
 typedef enum {
-    MOTION_STOPPED = 0,
-    MOTION_MOVING_UP,
-    MOTION_MOVING_DOWN
+MOTION_STOPPED = 0,
+MOTION_MOVING_UP,
+MOTION_MOVING_DOWN
 } motion_state_t;
 
 typedef enum {
-    MOTOR_ID_1 = 0,
-    MOTOR_ID_2 = 1,
-    MOTOR_COUNT = 2
+MOTOR_ID_1 = 0,
+MOTOR_ID_2 = 1,
+MOTOR_COUNT = 2
 } motor_id_t;
 
 typedef struct {
-    int16_t speed;          // -255 to 255
-    motor_id_t motor_id;
+int16_t speed;          // -255 to 255
+motor_id_t motor_id;
 } motor_command_t;
 
 typedef struct {
-    int16_t current_speed;      // Actual current speed
-    int16_t target_speed;       // Target speed
-    float current_ma;           // Current in mA
-    int32_t hall_count;         // Hall sensor pulse count
-    bool over_current;          // Over-current flag
-    bool thermal_shutdown;      // Thermal shutdown flag (from red wire)
-    bool limit_triggered;       // Limit switch triggered
-    bool red_wire_alarm;        // Red wire sensor triggered
-    bool yellow_wire_alarm;     // Yellow wire sensor triggered
-    float motor_end_temp;       // Calculated temperature from red-yellow wire pair
+int16_t current_speed;      // Actual current speed
+int16_t target_speed;       // Target speed
+float current_ma;           // Current in mA
+int32_t hall_count;         // Hall sensor pulse count
+bool over_current;          // Over-current flag
+bool thermal_shutdown;      // Thermal shutdown flag (from red wire)
+bool limit_triggered;       // Limit switch triggered
+bool red_wire_alarm;        // Red wire sensor triggered
+bool yellow_wire_alarm;     // Yellow wire sensor triggered
+float motor_end_temp;       // Calculated temperature from red-yellow wire pair
 } motor_state_t;
 
 typedef struct {
-    float height_mm;        // Current desk height
-    float target_height_mm; // Target height for preset moves
-    float mem1_height;      // Memory position 1
-    float mem2_height;      // Memory position 2
-    bool calibrated;        // Height calibration status
-} desk_state_t;
+float height_mm;        // Current d height
+float target_height_mm; // Target height for preset moves
+float mem1_height;      // Memory position 1
+float mem2_height;      // Memory position 2
+bool calibrated;        // Height calibration status
+} d_state_t;
 
 // ============================================================================
 // EXTERNAL VARIABLES
 // ============================================================================
 
-// Hall sensor pulse counters (ISR-safe)
-extern volatile int32_t hall_counters[MOTOR_COUNT];
-extern volatile uint32_t last_hall_time_ms[MOTOR_COUNT];
-
 // System state
-extern desk_state_t desk_state;
+extern d_state_t d_state;
 extern motion_state_t motion_state;
 
 // Motor states (protected by mutex)
@@ -73,16 +73,7 @@ extern motor_state_t motor_states[MOTOR_COUNT];
 // FreeRTOS primitives
 extern QueueHandle_t motor_command_queue;
 extern SemaphoreHandle_t motor_state_mutex;
-extern SemaphoreHandle_t desk_state_mutex;
-
-// ADC calibration handle
-extern esp_adc_cal_characteristics_t adc_cal_chars;
-
-// Legacy variables (for compatibility during transition)
-extern volatile long hallCountM1;
-extern volatile long hallCountM2;
-extern float heightMM;
-extern unsigned long lastHallTime;
+extern SemaphoreHandle_t d_state_mutex;
 
 // ============================================================================
 // FUNCTION DECLARATIONS - MOTOR CONTROL
@@ -106,12 +97,12 @@ void set_motor_speed(motor_id_t motor_id, int16_t speed);
 void stop_motors(void);
 
 /**
- * @brief Move desk up
+ * @brief Move d up
  */
 void move_up(void);
 
 /**
- * @brief Move desk down
+ * @brief Move d down
  */
 void move_down(void);
 
@@ -162,12 +153,12 @@ bool check_limit_switch(motor_id_t motor_id, bool top);
 void safety_check(void);
 
 /**
- * @brief Update desk height from hall sensor counts
+ * @brief Update d height from hall sensor counts
  */
 void update_height(void);
 
 /**
- * @brief Get current desk height
+ * @brief Get current d height
  * @return Height in millimeters
  */
 float get_current_height(void);
@@ -196,10 +187,10 @@ void sync_motors(int16_t base_speed);
 void get_motor_state(motor_id_t motor_id, motor_state_t* state);
 
 /**
- * @brief Get desk state (thread-safe)
- * @param state Pointer to desk state structure to fill
+ * @brief Get d state (thread-safe)
+ * @param state Pointer to d state structure to fill
  */
-void get_desk_state(desk_state_t* state);
+void get_d_state(d_state_t* state);
 
 // ============================================================================
 // FUNCTION DECLARATIONS - FREERTOS TASKS

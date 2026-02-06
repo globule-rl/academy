@@ -77,7 +77,11 @@
                     serialize doc to json
             send status 200/400/405
 ### unit test
-    #TODO
+    delta time
+    mock
+    hil
+### opencode
+    export PATH=/Users/stella/.opencode/bin:$PATH
 
 ## pin conn
     5-pin/purple-green-black-brown-yellow
@@ -86,7 +90,15 @@
         #TODO multimeter verify
     2-pin/end-of-travel/thermal/safety sw/red-black -> 5+2pin board
     2-pin/red-white -> hall sensor/pulse?/overcurrent?
+
+## debug
+### src
+   .platformio/packages/framework-espidf/components/esp_adc/include/esp_adc/adc_oneshot.h
+   
+    build_flags =
+        -I include
+        -D CONFIG_LOG_DEFAULT_LEVEL=3
+        -D CONFIG_LOG_COLORS=1
     
-
-
-
+ prompt:
+    good job on the test file, but disagree with your approach of wrapper.h, you shouldve told the problem when i asked your earlier before execute it, all the linked libs are included in platformio esp-idf framework, should be able to get it if using the same framework, avoid manually copying anything when all have already been defined in the include and src, stop if thats not possible, i will go ask another powerful ai, dont change anything yet

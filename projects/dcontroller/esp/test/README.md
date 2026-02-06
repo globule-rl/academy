@@ -1,6 +1,6 @@
 # ESP32 Motor Controller - Test System
 
-This directory contains comprehensive test suites for the ESP32 Dual Motor Desk Controller.
+This directory contains comprehensive test suites for the ESP32 Dual Motor d Controller.
 
 ## 📁 Test Structure
 
@@ -214,7 +214,7 @@ pio device monitor -b 115200
 - [ ] Power supply ON
 - [ ] Motors wired correctly
 - [ ] Sensors connected
-- [ ] Desk clear
+- [ ] d clear
 - [ ] Emergency stop ready
 
 **Before Commit:**

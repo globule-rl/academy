@@ -3,7 +3,6 @@
 #include "motor/display.h"
 #include "esp_log.h"
 #include "esp_system.h"
-#include "nvs_flash.h"
 #include <string.h>
 
 static const char *TAG = "main";
@@ -15,7 +14,7 @@ static const char *TAG = "main";
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "ESP32 Dual Motor Desk Controller");
+    ESP_LOGI(TAG, "ESP32 Dual Motor d Controller");
     ESP_LOGI(TAG, "========================================");
     
     // Initialize NVS first (needed for storage and WiFi)
@@ -42,9 +41,9 @@ extern "C" void app_main(void)
         return;
     }
     
-    desk_state_mutex = xSemaphoreCreateMutex();
-    if (desk_state_mutex == NULL) {
-        ESP_LOGE(TAG, "Failed to create desk state mutex");
+    d_state_mutex = xSemaphoreCreateMutex();
+    if (d_state_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create d state mutex");
         return;
     }
     

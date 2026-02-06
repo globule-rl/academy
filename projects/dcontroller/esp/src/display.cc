@@ -1,25 +1,23 @@
-#include "motor/display.h"
-#include "motor/pin.h"
+#include <string.h>
+#include <stdio.h>
+#include <motor/pin.h>
+#include <motor/display.h>
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
+#include "nvs.h"
 #include "esp_http_server.h"
-#include <string.h>
-#include <stdio.h>
 
 static const char *TAG = "display";
 
 // ============================================================================
 // GLOBAL VARIABLES
 // ============================================================================
-
-nvs_handle_t nvs_handle = 0;
-
-char wifi_ssid[32] = "DeskController";
-char wifi_password[64] = "desk123456";
+char wifi_ssid[32] = "dController";
+char wifi_password[64] = "d123456";
 bool wifi_connected = false;
 
 static httpd_handle_t http_server = NULL;
@@ -45,17 +43,12 @@ void storage_init(void) {
     }
     ESP_ERROR_CHECK(ret);
     
-    ret = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open NVS handle: %s", esp_err_to_name(ret));
-    }
-    
     // Load saved heights
     float h1 = storage_load_height(NVS_KEY_M1_POS);
     float h2 = storage_load_height(NVS_KEY_M2_POS);
     
-    if (h1 >= 0) desk_state.mem1_height = h1;
-    if (h2 >= 0) desk_state.mem2_height = h2;
+    if (h1 >= 0) d_state.mem1_height = h1;
+    if (h2 >= 0) d_state.mem2_height = h2;
     
     ESP_LOGI(TAG, "Storage initialized");
 }
@@ -69,7 +62,8 @@ void i2c_init(void) {
         .scl_io_num = I2C_SCL,
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_FREQ
+        .master = {.clk_speed = I2C_FREQ},
+        .clk_flags = 0
     };
     
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
@@ -88,7 +82,7 @@ void display_init(void) {
     }
     
     // Display welcome message
-    snprintf(display_buffer[0], 20, "Desk Controller");
+    snprintf(display_buffer[0], 20, "d Controller");
     snprintf(display_buffer[1], 20, "Initializing...");
     
     ESP_LOGI(TAG, "Display initialized");
@@ -115,18 +109,32 @@ void buttons_init(void) {
 // ============================================================================
 
 float storage_load_height(const char* key) {
+    nvs_handle_t handle;
     int32_t height_mm_x100 = -1;
-    esp_err_t ret = nvs_get_i32(nvs_handle, key, &height_mm_x100);
-    
-    if (ret == ESP_OK) {
-        return height_mm_x100 / 100.0f;
+
+    esp_err_t ret = nvs_open("storage", NVS_READWRITE, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS handle: %s", esp_err_to_name(ret));
+        return 0.0f;
     }
-    return -1.0f;
+    esp_err_t ret2 = nvs_get_i32(handle, key, &height_mm_x100);
+    
+    return (ret2 == ESP_OK) ? height_mm_x100 / 100.0f : -1.0f;
 }
 
 esp_err_t storage_save_height(const char* key, float height) {
+    nvs_handle_t handle;
     int32_t height_mm_x100 = (int32_t)(height * 100);
-    return nvs_set_i32(nvs_handle, key, height_mm_x100);
+
+    esp_err_t ret = nvs_open("storage", NVS_READWRITE, &handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS handle: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    esp_err_t ret2 = nvs_set_i32(handle, key, height_mm_x100);
+    nvs_close(handle);
+    
+    return ret2;
 }
 
 // ============================================================================
@@ -158,13 +166,13 @@ void buttons_poll(void) {
                         break;
                     case 2:  // M1
                         ESP_LOGI(TAG, "Button M1 pressed - saving height");
-                        desk_state.mem1_height = get_current_height();
-                        storage_save_height(NVS_KEY_M1_POS, desk_state.mem1_height);
+                        d_state.mem1_height = get_current_height();
+                        storage_save_height(NVS_KEY_M1_POS, d_state.mem1_height);
                         break;
                     case 3:  // M2
                         ESP_LOGI(TAG, "Button M2 pressed - saving height");
-                        desk_state.mem2_height = get_current_height();
-                        storage_save_height(NVS_KEY_M2_POS, desk_state.mem2_height);
+                        d_state.mem2_height = get_current_height();
+                        storage_save_height(NVS_KEY_M2_POS, d_state.mem2_height);
                         break;
                 }
             }
@@ -207,9 +215,9 @@ void display_update(void) {
     snprintf(display_buffer[2], 20, "%s", status);
     
     // Show memory positions
-    if (desk_state.mem1_height >= 0 && desk_state.mem2_height >= 0) {
+    if (d_state.mem1_height >= 0 && d_state.mem2_height >= 0) {
         snprintf(display_buffer[3], 20, "M1:%3.0f M2:%3.0f", 
-                 desk_state.mem1_height, desk_state.mem2_height);
+                 d_state.mem1_height, d_state.mem2_height);
     } else {
         snprintf(display_buffer[3], 20, "No saved positions");
     }
@@ -239,7 +247,7 @@ static esp_err_t web_root_handler(httpd_req_t *req) {
         "<!DOCTYPE html>"
         "<html>"
         "<head>"
-        "<title>Desk Controller</title>"
+        "<title>d Controller</title>"
         "<style>"
         "body { font-family: Arial; margin: 20px; background: #f0f0f0; }"
         ".container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }"
@@ -257,7 +265,7 @@ static esp_err_t web_root_handler(httpd_req_t *req) {
         "</head>"
         "<body>"
         "<div class='container'>"
-        "<h1>Desk Controller</h1>"
+        "<h1>d Controller</h1>"
         "<div class='height' id='height'>-- mm</div>"
         "<div class='controls'>"
         "<button class='up' onclick='move(\"up\")'>UP</button>"
@@ -321,10 +329,10 @@ static esp_err_t web_api_goto_handler(httpd_req_t *req) {
             int mem_num = atoi(mem);
             float target = -1;
             
-            if (mem_num == 1 && desk_state.mem1_height >= 0) {
-                target = desk_state.mem1_height;
-            } else if (mem_num == 2 && desk_state.mem2_height >= 0) {
-                target = desk_state.mem2_height;
+            if (mem_num == 1 && d_state.mem1_height >= 0) {
+                target = d_state.mem1_height;
+            } else if (mem_num == 2 && d_state.mem2_height >= 0) {
+                target = d_state.mem2_height;
             }
             
             if (target >= 0) {
@@ -372,9 +380,11 @@ void wifi_init(void) {
     
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = "DeskController",
-            .password = "desk123456",
-        },
+            .ssid = "dController",
+            .password = "d123456",
+            .scan_method = WIFI_FAST_SCAN,
+            .sae_h2e_identifier = ""
+        }
     };
     
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -484,16 +494,16 @@ int build_status_json(char* buf, size_t bufsize) {
         "}",
         height,
         motion_state,
-        desk_state.calibrated ? "true" : "false",
-        desk_state.mem1_height,
-        desk_state.mem2_height);
+        d_state.calibrated ? "true" : "false",
+        d_state.mem1_height,
+        d_state.mem2_height);
 }
 
 int build_motor_json(char* buf, size_t bufsize, const motor_state_t* states) {
     return snprintf(buf, bufsize,
         "["
-        "{\"speed\":%d,\"current\":%.1f,\"hall\":%d,\"oc\":%s,\"th\":%s,\"lm\":%s},"
-        "{\"speed\":%d,\"current\":%.1f,\"hall\":%d,\"oc\":%s,\"th\":%s,\"lm\":%s}"
+        "{\"speed\":%d,\"current\":%.1f,\"hall\":%ld,\"oc\":%s,\"th\":%s,\"lm\":%s},"
+        "{\"speed\":%d,\"current\":%.1f,\"hall\":%ld,\"oc\":%s,\"th\":%s,\"lm\":%s}"
         "]",
         states[0].current_speed, states[0].current_ma, states[0].hall_count,
         states[0].over_current ? "true" : "false",

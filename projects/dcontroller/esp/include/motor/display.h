@@ -2,12 +2,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <motor/motor.h>
+#include "nvs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
-#include "motor/motor.h"
-#include "nvs_flash.h"
-#include "nvs.h"
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,9 +24,6 @@ extern "C" {
 // ============================================================================
 // EXTERNAL VARIABLES
 // ============================================================================
-
-// NVS handle for settings storage
-extern nvs_handle_t nvs_handle;
 
 // WiFi configuration
 extern char wifi_ssid[32];

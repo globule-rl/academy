@@ -2,8 +2,9 @@
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-#include "driver/adc.h"
-#include "esp_adc_cal.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 
 // ============================================================================
 // MOTOR DRIVER PINS (BTS7960 / IBT-2)
@@ -60,9 +61,9 @@
 #define YELLOW_WIRE_LOGIC     0     // 0 = active LOW, 1 = active HIGH
 
 // Define what each wire does (ADJUST AFTER TESTING):
-// Options: THERMAL_CUTOFF, THERMAL_WARNING, TACHOMETER, ENDSTOP, UNKNOWN
-#define RED_WIRE_FUNCTION     THERMAL_CUTOFF    // Primary emergency thermal
-#define YELLOW_WIRE_FUNCTION  THERMAL_WARNING   // Secondary warning/alarm
+// Options: WIRE_THERMAL_CUTOFF, WIRE_THERMAL_WARNING, WIRE_TACHOMETER, WIRE_ENDSTOP_TOP, WIRE_ENDSTOP_BOTTOM
+#define RED_WIRE_FUNCTION     WIRE_THERMAL_CUTOFF    // Primary emergency thermal
+#define YELLOW_WIRE_FUNCTION  WIRE_THERMAL_WARNING   // Secondary warning/alarm
 
 // Wire function enum for configuration
 enum WireFunction {
@@ -81,11 +82,13 @@ enum WireFunction {
 // ============================================================================
 // CURRENT SENSORS (ACS712-30A)
 // ============================================================================
-#define CUR_M1        ADC1_CHANNEL_4   // GPIO32 - Motor 1 current
-#define CUR_M2        ADC1_CHANNEL_5   // GPIO33 - Motor 2 current
-#define ADC_ATTEN     ADC_ATTEN_DB_11  // 0-3.3V range
-#define ADC_WIDTH     ADC_WIDTH_BIT_12 // 12-bit resolution
+#define CUR_M1        ADC_CHANNEL_4 // GPIO32 - Motor 1 current
+#define CUR_M2        ADC_CHANNEL_5   // GPIO33 - Motor 2 current
+
+#define ADC_ATTEN     ADC_ATTEN_DB_12  // 0-3.3V range
+#define ADC_WIDTH     ADC_BITWIDTH_12 
 #define ADC_VREF      3300             // 3.3V in mV
+
 #define ACS712_OFFSET 1650             // 2.5V offset in mV (0A point)
 #define ACS712_SENS   66               // 66mV/A for 30A version
 
@@ -121,13 +124,13 @@ enum WireFunction {
 // HEIGHT CALIBRATION
 // ============================================================================
 #define PULSES_PER_MM     5.0f    // Hall pulses per millimeter
-#define MAX_HEIGHT_MM     500.0f  // Maximum desk height
-#define MIN_HEIGHT_MM     0.0f    // Minimum desk height
+#define MAX_HEIGHT_MM     500.0f  // Maximum d height
+#define MIN_HEIGHT_MM     0.0f    // Minimum d height
 
 // ============================================================================
 // NVS (Preferences) KEYS
 // ============================================================================
-#define NVS_NAMESPACE     "desk"
+#define NVS_NAMESPACE     "d"
 #define NVS_KEY_HEIGHT    "height"
 #define NVS_KEY_M1_POS    "mem1"
 #define NVS_KEY_M2_POS    "mem2"
