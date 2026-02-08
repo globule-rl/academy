@@ -18,6 +18,14 @@ static const char *TAG = "motor";
 float heightMM = 0;
 unsigned long lastHallTime = 0;
 
+motion_state_t motion_state = MOTION_STOPPED;
+
+// Motor states (protected by mutex)
+motor_state_t motor_states[MOTOR_COUNT] = {
+    {0, 0, 0.0f, 0, false, false, false, false, false, 25.0f},
+    {0, 0, 0.0f, 0, false, false, false, false, false, 25.0f}
+};
+
 // System state
 d_state_t d_state = {
     .height_mm = 0.0f,
@@ -25,14 +33,6 @@ d_state_t d_state = {
     .mem1_height = -1.0f,
     .mem2_height = -1.0f,
     .calibrated = false
-};
-
-motion_state_t motion_state = MOTION_STOPPED;
-
-// Motor states (protected by mutex)
-motor_state_t motor_states[MOTOR_COUNT] = {
-    {0, 0, 0.0f, 0, false, false, false, false, false, 25.0f},
-    {0, 0, 0.0f, 0, false, false, false, false, false, 25.0f}
 };
 
 // FreeRTOS primitives

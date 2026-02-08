@@ -2,20 +2,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <motor/motor.h>
-#include "nvs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
-
+#include <motor/motor.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// ============================================================================
-// DISPLAY CONFIGURATION
-// ============================================================================
 
 #define DISPLAY_UPDATE_MS       100     // Display refresh interval
 #define BUTTON_POLL_MS          50      // Button polling interval

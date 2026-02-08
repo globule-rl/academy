@@ -65,10 +65,6 @@ bool calibrated;        // Height calibration status
 
 // System state
 extern d_state_t d_state;
-extern motion_state_t motion_state;
-
-// Motor states (protected by mutex)
-extern motor_state_t motor_states[MOTOR_COUNT];
 
 // FreeRTOS primitives
 extern QueueHandle_t motor_command_queue;

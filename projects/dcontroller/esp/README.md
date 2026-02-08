@@ -92,13 +92,32 @@
     2-pin/red-white -> hall sensor/pulse?/overcurrent?
 
 ## debug
+### llm
+    opencode ./usage
+    local lm studio
+        lms server start --port 1234
+        export ANTHROPIC_BASE_URL=http://localhost:1234
+        export ANTHROPIC_AUTH_TOKEN=lmstudio
+            claude --model openai/gpt-oss-20b
+        /model
+    openrouter
+        "$schema": "https://opencode.ai/config.json",
+            "model": "openrouter/anthropic/claude-sonnet-4.5",
+        "plan": "model": "openrouter/anthropic/claude-opus-4.5",
+    openclaw price drop
 ### src
    .platformio/packages/framework-espidf/components/esp_adc/include/esp_adc/adc_oneshot.h
-   
-    build_flags =
-        -I include
-        -D CONFIG_LOG_DEFAULT_LEVEL=3
-        -D CONFIG_LOG_COLORS=1
-    
- prompt:
-    good job on the test file, but disagree with your approach of wrapper.h, you shouldve told the problem when i asked your earlier before execute it, all the linked libs are included in platformio esp-idf framework, should be able to get it if using the same framework, avoid manually copying anything when all have already been defined in the include and src, stop if thats not possible, i will go ask another powerful ai, dont change anything yet
+
+### header files
+    mv test/test_motor_wrapper.h ../../../../ref/dmotor/test
+    cache
+    /Users/stella/.platformio/.cache/tmp/test-list-21269.json
+
+### hil 
+    mock test 
+        ./run_tests.sh mock 
+        cmock
+            mv test/test_motor.c ../../../../ref/dmotor/test
+            mv run_tests.sh ../../../../ref/dmotor/test
+
+

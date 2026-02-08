@@ -1,15 +1,24 @@
 #include <string.h>
 #include <stdio.h>
-#include <motor/pin.h>
-#include <motor/display.h>
-#include "esp_log.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
+#include "esp_log.h"
+#include "esp_err.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
-#include "nvs_flash.h"
-#include "nvs.h"
 #include "esp_http_server.h"
+#include <motor/pin.h>
+#include <motor/display.h>
+
+motion_state_t motion_state = MOTION_STOPPED;
+
+// Motor states (protected by mutex)
+motor_state_t motor_states[MOTOR_COUNT] = {
+    {0, 0, 0.0f, 0, false, false, false, false, false, 25.0f},
+    {0, 0, 0.0f, 0, false, false, false, false, false, 25.0f}
+};
 
 static const char *TAG = "display";
 
